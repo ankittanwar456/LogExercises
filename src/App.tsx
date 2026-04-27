@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, isFuture, isSameDay } from "date-fns";
-import { Calendar as CalendarIcon, ClipboardList, TrendingUp } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, TrendingUp } from "lucide-react";
 import { AppState, ExerciseTemplate, WorkoutDay } from "./types";
 import { loadState, saveState } from "./lib/storage";
 import { defaultExerciseTemplates, mergeExerciseTemplates } from "./lib/exerciseTemplates";
 import Calendar from "./components/Calendar";
 import WorkoutLog from "./components/WorkoutLog";
+import Settings from "./components/Settings";
 import { cn } from "./lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 
-type Tab = "history" | "today" | "stats";
+type Tab = "history" | "today" | "stats" | "settings";
 
 const SAVE_DEBOUNCE_MS = 750;
 
@@ -108,6 +109,63 @@ export default function App() {
     });
   }, []);
 
+  const updateCustomExercise = useCallback((previousName: string, template: ExerciseTemplate) => {
+    const exerciseName = template.name.trim();
+    if (!exerciseName) return;
+
+    setState((prev) => ({
+      ...prev,
+      customExercises: prev.customExercises.map((exercise) =>
+        exercise.name.toLowerCase() === previousName.toLowerCase()
+          ? {
+              ...exercise,
+              name: exerciseName,
+              photo: template.photo,
+              trackingType: template.trackingType ?? exercise.trackingType ?? "weighted",
+            }
+          : exercise
+      ),
+      workouts: Object.fromEntries(
+        (Object.entries(prev.workouts) as [string, WorkoutDay][]).map(([date, workout]) => [
+          date,
+          {
+            ...workout,
+            exercises: workout.exercises.map((exercise) =>
+              exercise.name.toLowerCase() === previousName.toLowerCase()
+                ? { ...exercise, name: exerciseName, photo: undefined }
+                : exercise
+            ),
+          },
+        ])
+      ),
+    }));
+  }, []);
+
+  const deleteCustomExercise = useCallback((name: string) => {
+    const confirmed = window.confirm(
+      `Delete "${name}" from custom exercises and remove it from all old workout entries?`
+    );
+    if (!confirmed) return;
+
+    setState((prev) => ({
+      ...prev,
+      customExercises: prev.customExercises.filter(
+        (exercise) => exercise.name.toLowerCase() !== name.toLowerCase()
+      ),
+      workouts: Object.fromEntries(
+        (Object.entries(prev.workouts) as [string, WorkoutDay][]).map(([date, workout]) => [
+          date,
+          {
+            ...workout,
+            exercises: workout.exercises.filter(
+              (exercise) => exercise.name.toLowerCase() !== name.toLowerCase()
+            ),
+          },
+        ])
+      ),
+    }));
+  }, []);
+
   const NavItem = ({ id, icon: Icon, label }: { id: Tab; icon: any; label: string }) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -198,6 +256,22 @@ export default function App() {
               </div>
             </motion.div>
           )}
+
+          {activeTab === "settings" && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Settings
+                data={state}
+                customExercises={state.customExercises}
+                onUpdateExercise={updateCustomExercise}
+                onDeleteExercise={deleteCustomExercise}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -205,6 +279,7 @@ export default function App() {
         <NavItem id="history" icon={CalendarIcon} label="History" />
         <NavItem id="today" icon={ClipboardList} label="Workout" />
         <NavItem id="stats" icon={TrendingUp} label="Progress" />
+        <NavItem id="settings" icon={SettingsIcon} label="Settings" />
       </nav>
     </div>
   );
