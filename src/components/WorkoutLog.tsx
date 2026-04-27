@@ -3,7 +3,7 @@ import { Plus, CheckCircle2, Play, Circle, Calendar as CalendarIcon, ArrowLeft, 
 import { WorkoutDay, ExerciseEntry, ExerciseTemplate, ExerciseTrackingType } from "../types";
 import { format } from "date-fns";
 import ExerciseCard from "./ExerciseCard";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "../lib/utils";
 
 interface WorkoutLogProps {
@@ -20,12 +20,18 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState("");
   const [newExerciseTrackingType, setNewExerciseTrackingType] = useState<ExerciseTrackingType>("weighted");
-  const matchingExerciseTemplates = exerciseTemplates
-    .filter((template) => template.name.toLowerCase().includes(newExerciseName.trim().toLowerCase()))
-    .slice(0, 6);
+  const exerciseTemplatesByName = useMemo(
+    () => new Map(exerciseTemplates.map((template) => [template.name.trim().toLowerCase(), template])),
+    [exerciseTemplates]
+  );
+  const matchingExerciseTemplates = useMemo(() => {
+    const search = newExerciseName.trim().toLowerCase();
+    if (!search) return exerciseTemplates.slice(0, 6);
 
-  const getExerciseTemplate = (exerciseName: string) =>
-    exerciseTemplates.find((template) => template.name.toLowerCase() === exerciseName.toLowerCase());
+    return exerciseTemplates
+      .filter((template) => template.name.toLowerCase().includes(search))
+      .slice(0, 6);
+  }, [exerciseTemplates, newExerciseName]);
 
   const withoutWorkoutPhoto = (exercise: ExerciseEntry): ExerciseEntry => {
     const { photo, ...exerciseWithoutPhoto } = exercise;
@@ -158,7 +164,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
               key={exercise.id}
               exercise={{
                 ...exercise,
-                photo: getExerciseTemplate(exercise.name)?.photo ?? exercise.photo,
+                photo: exerciseTemplatesByName.get(exercise.name.trim().toLowerCase())?.photo ?? exercise.photo,
               }}
               isLocked={!canEdit || workout.isCompleted}
               onUpdate={updateExercise}

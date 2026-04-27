@@ -13,7 +13,7 @@ import {
   endOfWeek
 } from "date-fns";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Activity } from "lucide-react";
+import { ChevronLeft, ChevronRight, Activity, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 import { WorkoutDay } from "../types";
 
@@ -38,6 +38,7 @@ export default function Calendar({ workouts, onSelectDate, selectedDate }: Calen
 
   const today = new Date();
   const canGoNextMonth = isAfter(startOfMonth(today), monthStart);
+  const monthlyWorkoutDays = Object.keys(workouts).filter((date) => date.startsWith(format(monthStart, "yyyy-MM"))).length;
 
   const nextMonth = () => {
     if (canGoNextMonth) setViewMonth(addMonths(viewMonth, 1));
@@ -48,10 +49,16 @@ export default function Calendar({ workouts, onSelectDate, selectedDate }: Calen
 
   return (
     <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between mb-6 px-2">
-        <h2 className="text-xl font-bold text-gray-900">
-          {format(viewMonth, "MMMM yyyy")}
-        </h2>
+      <div className="flex items-start justify-between mb-6 px-2">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">
+            {format(viewMonth, "MMMM yyyy")}
+          </h2>
+          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-lime-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-lime-700">
+            <Activity className="h-3.5 w-3.5" />
+            {monthlyWorkoutDays} workout {monthlyWorkoutDays === 1 ? "day" : "days"}
+          </div>
+        </div>
         <div className="flex gap-2">
           <button 
             onClick={prevMonth}
@@ -96,24 +103,28 @@ export default function Calendar({ workouts, onSelectDate, selectedDate }: Calen
                 if (!isCurrentMonth) setViewMonth(startOfMonth(day));
               }}
               className={cn(
-                "relative h-12 flex flex-col items-center justify-center rounded-xl transition-all",
+                "relative h-12 flex flex-col items-center justify-center rounded-xl border transition-all overflow-hidden",
+                hasWorkout ? "border-lime-500 bg-lime-500 text-black shadow-[0_8px_22px_rgba(132,204,22,0.24)]" : "border-transparent",
                 !isCurrentMonth && "opacity-20",
                 isFutureDate && "opacity-20 cursor-not-allowed hover:bg-transparent",
-                isSelected ? "bg-black text-white" : "hover:bg-gray-50"
+                isSelected && hasWorkout ? "bg-lime-500 border-lime-500 shadow-[0_8px_22px_rgba(132,204,22,0.24)] scale-105" : "",
+                isSelected && !hasWorkout ? "bg-black text-white border-black shadow-none" : "hover:bg-gray-50"
               )}
             >
               <span className={cn(
                 "text-sm font-medium z-10",
-                isSelected ? "text-white" : "text-gray-700"
+                hasWorkout ? "font-black text-black" : "",
+                isSelected && !hasWorkout ? "text-white" : "text-gray-700"
               )}>
                 {format(day, "d")}
               </span>
               {hasWorkout && (
                 <div className={cn(
-                  "absolute bottom-1.5 w-1 h-1 rounded-full",
-                  isCompleted ? "bg-green-500" : "bg-orange-500",
-                  isSelected && "bg-white"
-                )} />
+                  "absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-zinc-950",
+                  isCompleted ? "bg-lime-400 text-black" : "bg-orange-400 text-black"
+                )}>
+                  <Check className="h-2.5 w-2.5 stroke-[4]" />
+                </div>
               )}
             </button>
           );

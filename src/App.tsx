@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, isFuture, isSameDay } from "date-fns";
 import { Calendar as CalendarIcon, ClipboardList, TrendingUp } from "lucide-react";
 import { AppState, ExerciseTemplate, WorkoutDay } from "./types";
@@ -11,21 +11,48 @@ import { motion, AnimatePresence } from "motion/react";
 
 type Tab = "history" | "today" | "stats";
 
+const SAVE_DEBOUNCE_MS = 750;
+
 export default function App() {
   const [state, setState] = useState<AppState>(loadState);
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const didHydrateRef = useRef(false);
 
   useEffect(() => {
-    saveState(state);
+    if (!didHydrateRef.current) {
+      didHydrateRef.current = true;
+      return;
+    }
+
+    let idleCallbackId: number | null = null;
+    const timeoutId = window.setTimeout(() => {
+      const persist = () => saveState(state);
+
+      if ("requestIdleCallback" in window) {
+        idleCallbackId = window.requestIdleCallback(persist, { timeout: 2_000 });
+      } else {
+        persist();
+      }
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (idleCallbackId !== null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleCallbackId);
+      }
+    };
   }, [state]);
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const currentWorkout = state.workouts[dateStr] || null;
   const isSelectedToday = isSameDay(selectedDate, new Date());
-  const exerciseTemplates = mergeExerciseTemplates(defaultExerciseTemplates, state.customExercises);
+  const exerciseTemplates = useMemo(
+    () => mergeExerciseTemplates(defaultExerciseTemplates, state.customExercises),
+    [state.customExercises]
+  );
 
-  const updateWorkout = (workout: WorkoutDay) => {
+  const updateWorkout = useCallback((workout: WorkoutDay) => {
     if (workout.date !== format(new Date(), "yyyy-MM-dd")) return;
 
     setState((prev) => ({
@@ -35,16 +62,16 @@ export default function App() {
         [workout.date]: workout,
       },
     }));
-  };
+  }, []);
 
-  const handleSelectDate = (date: Date) => {
+  const handleSelectDate = useCallback((date: Date) => {
     if (isFuture(date) && !isSameDay(date, new Date())) return;
 
     setSelectedDate(date);
     setActiveTab("today");
-  };
+  }, []);
 
-  const saveExerciseTemplate = (template: ExerciseTemplate) => {
+  const saveExerciseTemplate = useCallback((template: ExerciseTemplate) => {
     const exerciseName = template.name.trim();
     if (!exerciseName) return;
 
@@ -79,7 +106,7 @@ export default function App() {
         customExercises: nextCustomExercises,
       };
     });
-  };
+  }, []);
 
   const NavItem = ({ id, icon: Icon, label }: { id: Tab; icon: any; label: string }) => (
     <button
@@ -115,18 +142,6 @@ export default function App() {
                 selectedDate={selectedDate}
                 onSelectDate={handleSelectDate}
               />
-              
-              <div className="p-8 bg-lime-500 text-black rounded-3xl space-y-4 shadow-[0_20px_50px_rgba(132,204,22,0.2)]">
-                <h3 className="text-4xl font-black italic tracking-tighter leading-tight">LEVEL UP ⚡️</h3>
-                <p className="text-black/70 text-[10px] font-black uppercase tracking-widest leading-relaxed">
-                  You have logged <span className="text-black font-black underline underline-offset-4">{Object.keys(state.workouts).length}</span> workouts. Keep pushing.
-                </p>
-                <div className="flex gap-2">
-                  <div className="px-4 py-2 bg-black text-white rounded-lg text-[10px] font-black uppercase tracking-widest">
-                    Alpha Member
-                  </div>
-                </div>
-              </div>
             </motion.div>
           )}
 

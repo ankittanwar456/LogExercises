@@ -1,6 +1,7 @@
 import { AppState, WorkoutDay } from "../types";
 
 const STORAGE_KEY = "reptrack_data";
+const MAX_PERSISTED_PHOTO_LENGTH = 300_000;
 
 const removeWorkoutExercisePhotos = (workouts: AppState["workouts"]): AppState["workouts"] =>
   Object.fromEntries(
@@ -18,7 +19,11 @@ const removeWorkoutExercisePhotos = (workouts: AppState["workouts"]): AppState["
 
 const sanitizeState = (state: AppState): AppState => ({
   workouts: removeWorkoutExercisePhotos(state.workouts),
-  customExercises: state.customExercises,
+  customExercises: state.customExercises.map((exercise) =>
+    exercise.photo?.startsWith("data:") && exercise.photo.length > MAX_PERSISTED_PHOTO_LENGTH
+      ? { ...exercise, photo: undefined }
+      : exercise
+  ),
 });
 
 export const loadState = (): AppState => {
@@ -40,8 +45,14 @@ export const loadState = (): AppState => {
   };
 };
 
-export const saveState = (state: AppState) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeState(state)));
+export const saveState = (state: AppState): boolean => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeState(state)));
+    return true;
+  } catch (e) {
+    console.error("Failed to save state", e);
+    return false;
+  }
 };
 
 export const getWorkoutForDate = (state: AppState, dateStr: string): WorkoutDay | null => {

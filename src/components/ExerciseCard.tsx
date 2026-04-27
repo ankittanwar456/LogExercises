@@ -4,6 +4,40 @@ import { ExerciseEntry, ExerciseTrackingType, SetEntry } from "../types";
 import { cn } from "../lib/utils";
 import React, { useState, useRef } from "react";
 
+const MAX_PHOTO_SIZE = 320;
+const PHOTO_QUALITY = 0.72;
+
+const readCompressedPhoto = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      const scale = Math.min(1, MAX_PHOTO_SIZE / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        reject(new Error("Unable to prepare exercise photo"));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", PHOTO_QUALITY));
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Unable to read exercise photo"));
+    };
+
+    image.src = objectUrl;
+  });
+
 interface ExerciseCardProps {
   key?: string;
   exercise: ExerciseEntry;
@@ -40,14 +74,17 @@ export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked }:
     });
   };
 
-  const setPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onUpdate({ ...exercise, photo: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      const photo = await readCompressedPhoto(file);
+      onUpdate({ ...exercise, photo });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      e.target.value = "";
     }
   };
 
