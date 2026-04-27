@@ -1,11 +1,27 @@
 import { Camera, Download, Save, Settings as SettingsIcon, Trash2, Upload, X } from "lucide-react";
 import { motion } from "motion/react";
 import React, { useRef, useState } from "react";
+import JSZip from "jszip";
 import { AppState, ExerciseTemplate } from "../types";
 import { cn } from "../lib/utils";
 
 const MAX_PHOTO_SIZE = 320;
 const PHOTO_QUALITY = 0.72;
+
+const getSafeFileName = (name: string) =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "exercise";
+
+const getImageExtension = (photo: string) => {
+  const match = photo.match(/^data:image\/([^;]+);base64,/);
+  if (!match) return "jpg";
+  return match[1] === "jpeg" ? "jpg" : match[1];
+};
+
+const getBase64Data = (photo: string) => photo.replace(/^data:image\/[^;]+;base64,/, "");
 
 const readCompressedPhoto = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -46,12 +62,31 @@ interface SettingsProps {
 }
 
 export default function Settings({ data, customExercises, onUpdateExercise, onDeleteExercise }: SettingsProps) {
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const exportData = async () => {
+    const zip = new JSZip();
+    const exportedCustomExercises = data.customExercises.map((exercise) => {
+      if (!exercise.photo) return exercise;
+
+      const extension = getImageExtension(exercise.photo);
+      const imagePath = `custom-exercise-images/${getSafeFileName(exercise.name)}.${extension}`;
+      zip.file(imagePath, getBase64Data(exercise.photo), { base64: true });
+
+      return {
+        ...exercise,
+        photo: imagePath,
+      };
+    });
+    const exportData: AppState = {
+      ...data,
+      customExercises: exportedCustomExercises,
+    };
+
+    zip.file("reptrack-data.json", JSON.stringify(exportData, null, 2));
+    const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `reptrack-export-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `reptrack-export-${new Date().toISOString().slice(0, 10)}.zip`;
     link.click();
     URL.revokeObjectURL(url);
   };
