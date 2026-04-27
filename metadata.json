@@ -1,0 +1,8 @@
+{
+  "name": "RepTrack",
+  "description": "A focused workout logger for tracking sets, reps, and weights with calendar history.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
