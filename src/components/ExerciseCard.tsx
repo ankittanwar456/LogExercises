@@ -189,36 +189,19 @@ function SetForm({
   onAdd: (w: number | null, r: number, trackingType: ExerciseTrackingType) => void;
   onCancel: () => void;
 }) {
-  const [selectedTrackingType, setSelectedTrackingType] = useState<ExerciseTrackingType>(trackingType);
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
-  const isWeighted = selectedTrackingType === "weighted";
+  const isWeighted = trackingType === "weighted";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((!isWeighted || weight) && reps) {
-      onAdd(isWeighted ? parseFloat(weight) : null, parseInt(reps), selectedTrackingType);
+      onAdd(isWeighted ? parseFloat(weight) : null, parseInt(reps), trackingType);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-6 bg-zinc-950 rounded-2xl space-y-6 border border-zinc-800">
-      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-zinc-900 p-1 border border-zinc-800">
-        {(["weighted", "reps-only"] as ExerciseTrackingType[]).map((type) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => setSelectedTrackingType(type)}
-            className={cn(
-              "rounded-xl py-3 text-[10px] font-black uppercase tracking-widest transition-all",
-              selectedTrackingType === type ? "bg-lime-500 text-black" : "text-zinc-600 hover:text-white"
-            )}
-          >
-            {type === "weighted" ? "Weighted" : "Reps Only"}
-          </button>
-        ))}
-      </div>
-
       <div className={cn("grid gap-4", isWeighted ? "grid-cols-2" : "grid-cols-1")}>
         {isWeighted && (
           <div className="space-y-2">

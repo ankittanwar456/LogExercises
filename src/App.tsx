@@ -14,8 +14,43 @@ type Tab = "history" | "today" | "stats" | "settings";
 
 const SAVE_DEBOUNCE_MS = 750;
 
+const finishStaleWorkouts = (state: AppState, today = format(new Date(), "yyyy-MM-dd")): AppState => {
+  let didChange = false;
+
+  const workouts = Object.fromEntries(
+    (Object.entries(state.workouts) as [string, WorkoutDay][]).map(([date, workout]) => {
+      if (date >= today || workout.isCompleted) {
+        return [date, workout];
+      }
+
+      didChange = true;
+      return [
+        date,
+        {
+          ...workout,
+          isCompleted: true,
+          endTime: workout.endTime ?? new Date(`${date}T23:59:59`).toISOString(),
+        },
+      ];
+    })
+  );
+
+  return didChange ? { ...state, workouts } : state;
+};
+
+const loadInitialState = (): AppState => {
+  const state = loadState();
+  const nextState = finishStaleWorkouts(state);
+
+  if (nextState !== state) {
+    saveState(nextState);
+  }
+
+  return nextState;
+};
+
 export default function App() {
-  const [state, setState] = useState<AppState>(loadState);
+  const [state, setState] = useState<AppState>(loadInitialState);
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const didHydrateRef = useRef(false);
