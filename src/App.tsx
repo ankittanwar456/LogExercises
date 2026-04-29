@@ -4,6 +4,7 @@ import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, Tren
 import { AppState, ExerciseTemplate, WorkoutDay } from "./types";
 import { loadState, saveState } from "./lib/storage";
 import { defaultExerciseTemplates, mergeExerciseTemplates } from "./lib/exerciseTemplates";
+import { initExerciseDb, isExerciseDbReady } from "./lib/exerciseDb";
 import Calendar from "./components/Calendar";
 import WorkoutLog from "./components/WorkoutLog";
 import Settings from "./components/Settings";
@@ -54,6 +55,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const didHydrateRef = useRef(false);
+  const [dbReady, setDbReady] = useState(isExerciseDbReady);
+
+  useEffect(() => {
+    initExerciseDb()
+      .then(() => setDbReady(true))
+      .catch((err) => console.error("Failed to load exercise DB", err));
+  }, []);
 
   useEffect(() => {
     if (!didHydrateRef.current) {
@@ -251,6 +259,7 @@ export default function App() {
                 workout={currentWorkout}
                 canEdit={isSelectedToday}
                 exerciseTemplates={exerciseTemplates}
+                dbReady={dbReady}
                 onUpdate={updateWorkout}
                 onSaveExerciseTemplate={saveExerciseTemplate}
                 onBack={() => setActiveTab("history")}

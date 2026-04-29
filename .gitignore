@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+public/exercises.db
+public/sql-wasm.wasm

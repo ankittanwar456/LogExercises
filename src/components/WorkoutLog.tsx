@@ -1,22 +1,25 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, CheckCircle2, Play, Circle, Calendar as CalendarIcon, ArrowLeft, RotateCcw } from "lucide-react";
+import { Plus, CheckCircle2, Play, Circle, Calendar as CalendarIcon, ArrowLeft, RotateCcw, Database } from "lucide-react";
 import { WorkoutDay, ExerciseEntry, ExerciseTemplate, ExerciseTrackingType } from "../types";
 import { format } from "date-fns";
 import ExerciseCard from "./ExerciseCard";
 import { useMemo, useState } from "react";
 import { cn } from "../lib/utils";
+import { searchExercisesByName, DbExercise } from "../lib/exerciseDb";
+import { fetchAndCacheImage, getCachedImage } from "../lib/imageCache";
 
 interface WorkoutLogProps {
   date: Date;
   workout: WorkoutDay | null;
   canEdit: boolean;
   exerciseTemplates: ExerciseTemplate[];
+  dbReady: boolean;
   onUpdate: (workout: WorkoutDay) => void;
   onSaveExerciseTemplate: (template: ExerciseTemplate) => void;
   onBack: () => void;
 }
 
-export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, onUpdate, onSaveExerciseTemplate, onBack }: WorkoutLogProps) {
+export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, dbReady, onUpdate, onSaveExerciseTemplate, onBack }: WorkoutLogProps) {
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState("");
   const [newExerciseTrackingType, setNewExerciseTrackingType] = useState<ExerciseTrackingType>("weighted");
@@ -32,6 +35,17 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
       .filter((template) => template.name.toLowerCase().includes(search))
       .slice(0, 6);
   }, [exerciseTemplates, newExerciseName]);
+
+  const matchingDbExercises = useMemo(() => {
+    if (!dbReady) return [];
+    const search = newExerciseName.trim();
+    if (!search) return [];
+
+    const localNames = new Set(matchingExerciseTemplates.map((t) => t.name.trim().toLowerCase()));
+    return searchExercisesByName(search, 10)
+      .filter((ex) => !localNames.has(ex.name.trim().toLowerCase()))
+      .slice(0, 6);
+  }, [dbReady, newExerciseName, matchingExerciseTemplates]);
 
   const withoutWorkoutPhoto = (exercise: ExerciseEntry): ExerciseEntry => {
     const { photo, ...exerciseWithoutPhoto } = exercise;
@@ -67,6 +81,47 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
     if (!template) {
       onSaveExerciseTemplate({ name: exerciseName, trackingType: newExercise.trackingType });
     }
+    setNewExerciseName("");
+    setNewExerciseTrackingType("weighted");
+    setIsAddingExercise(false);
+  };
+
+  const addDbExercise = (dbExercise: DbExercise) => {
+    if (!workout) return;
+
+    const cachedPhoto = getCachedImage(dbExercise.image);
+
+    const newExercise: ExerciseEntry = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: dbExercise.name,
+      trackingType: "weighted",
+      sets: [],
+      isCompleted: false,
+    };
+
+    onUpdate({
+      ...workout,
+      exercises: [...workout.exercises, newExercise],
+    });
+
+    onSaveExerciseTemplate({
+      name: dbExercise.name,
+      photo: cachedPhoto ?? undefined,
+      trackingType: "weighted",
+    });
+
+    if (!cachedPhoto && dbExercise.image) {
+      fetchAndCacheImage(dbExercise.image).then((dataUrl) => {
+        if (dataUrl) {
+          onSaveExerciseTemplate({
+            name: dbExercise.name,
+            photo: dataUrl,
+            trackingType: "weighted",
+          });
+        }
+      });
+    }
+
     setNewExerciseName("");
     setNewExerciseTrackingType("weighted");
     setIsAddingExercise(false);
@@ -226,6 +281,31 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
                           <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">
                             {template.trackingType === "reps-only" ? "Reps" : "Kg"}
                           </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {matchingDbExercises.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 italic flex items-center gap-1.5">
+                      <Database className="w-3 h-3" />
+                      From exercise database
+                    </p>
+                    <div className="grid gap-2">
+                      {matchingDbExercises.map((dbEx) => (
+                        <button
+                          key={`db-${dbEx.name}`}
+                          onClick={() => addDbExercise(dbEx)}
+                          className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-left hover:border-cyan-500 active:scale-[0.98] transition-all"
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-zinc-900 overflow-hidden border border-zinc-800 flex items-center justify-center">
+                            <Database className="w-4 h-4 text-cyan-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-black uppercase tracking-wider text-white italic block truncate">{dbEx.name}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{dbEx.target} · {dbEx.body_part}</span>
+                          </div>
                         </button>
                       ))}
                     </div>
