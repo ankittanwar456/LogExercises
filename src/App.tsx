@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, isFuture, isSameDay } from "date-fns";
 import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, TrendingUp } from "lucide-react";
-import { AppState, ExerciseTemplate, WorkoutDay } from "./types";
+import { AppState, ExerciseTemplate, UserProfile, WorkoutDay } from "./types";
 import { loadState, saveState } from "./lib/storage";
 import { defaultExerciseTemplates, mergeExerciseTemplates } from "./lib/exerciseTemplates";
 import { initExerciseDb, isExerciseDbReady } from "./lib/exerciseDb";
@@ -209,6 +209,13 @@ export default function App() {
     }));
   }, []);
 
+  const updateProfile = useCallback((profile: UserProfile) => {
+    setState((prev) => ({
+      ...prev,
+      profile,
+    }));
+  }, []);
+
   const NavItem = ({ id, icon: Icon, label }: { id: Tab; icon: any; label: string }) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -311,6 +318,7 @@ export default function App() {
               <Settings
                 data={state}
                 customExercises={state.customExercises}
+                onUpdateProfile={updateProfile}
                 onUpdateExercise={updateCustomExercise}
                 onDeleteExercise={deleteCustomExercise}
               />

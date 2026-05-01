@@ -1,7 +1,11 @@
-import { AppState, WorkoutDay } from "../types";
+import { AppState, UserProfile, WorkoutDay } from "../types";
 
 const STORAGE_KEY = "reptrack_data";
 const MAX_PERSISTED_PHOTO_LENGTH = 300_000;
+
+const createDefaultProfile = (): UserProfile => ({
+  bodyWeightHistory: [],
+});
 
 const removeWorkoutExercisePhotos = (workouts: AppState["workouts"]): AppState["workouts"] =>
   Object.fromEntries(
@@ -24,6 +28,11 @@ const sanitizeState = (state: AppState): AppState => ({
       ? { ...exercise, photo: undefined }
       : exercise
   ),
+  profile: {
+    ...createDefaultProfile(),
+    ...state.profile,
+    bodyWeightHistory: state.profile?.bodyWeightHistory ?? [],
+  },
 });
 
 export const loadState = (): AppState => {
@@ -34,6 +43,7 @@ export const loadState = (): AppState => {
       return sanitizeState({
         workouts: parsed.workouts ?? {},
         customExercises: parsed.customExercises ?? [],
+        profile: parsed.profile ?? createDefaultProfile(),
       });
     } catch (e) {
       console.error("Failed to parse stored state", e);
@@ -42,6 +52,7 @@ export const loadState = (): AppState => {
   return {
     workouts: {},
     customExercises: [],
+    profile: createDefaultProfile(),
   };
 };
 

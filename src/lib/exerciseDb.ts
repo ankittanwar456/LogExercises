@@ -57,12 +57,33 @@ const queryAll = (sql: string, params?: Record<string, unknown>): DbExercise[] =
   return results;
 };
 
+export const getExerciseSearchTerms = (query: string): string[] =>
+  query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+export const exerciseNameMatchesSearch = (name: string, searchTerms: string[]): boolean => {
+  const normalizedName = name.toLowerCase();
+  return searchTerms.every((term) => normalizedName.includes(term));
+};
+
 export function searchExercisesByName(query: string, limit = 20): DbExercise[] {
   const trimmed = query.trim();
   if (!trimmed) return queryAll("SELECT * FROM exercises ORDER BY name LIMIT $limit", { $limit: limit });
+  const searchTerms = getExerciseSearchTerms(trimmed);
+  const whereClause = searchTerms.map((_, index) => `name LIKE $term${index}`).join(" AND ");
+  const params = Object.fromEntries(searchTerms.map((term, index) => [`$term${index}`, `%${term}%`]));
+
   return queryAll(
-    "SELECT * FROM exercises WHERE name LIKE $query ORDER BY name LIMIT $limit",
-    { $query: `%${trimmed}%`, $limit: limit }
+    `SELECT * FROM exercises
+     WHERE ${whereClause}
+     ORDER BY
+       CASE WHEN name LIKE $phrase THEN 0 ELSE 1 END,
+       name
+     LIMIT $limit`,
+    { ...params, $phrase: `%${trimmed}%`, $limit: limit }
   );
 }
 

@@ -120,10 +120,10 @@ export default function Calendar({ workouts, onSelectDate, selectedDate }: Calen
               </span>
               {hasWorkout && (
                 <div className={cn(
-                  "absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-zinc-950",
+                  "absolute right-1 top-1 flex h-3 w-3 items-center justify-center rounded-full border border-zinc-950",
                   isCompleted ? "bg-lime-400 text-black" : "bg-orange-400 text-black"
                 )}>
-                  <Check className="h-2.5 w-2.5 stroke-[4]" />
+                  <Check className="h-[7.5px] w-[7.5px] stroke-[4]" />
                 </div>
               )}
             </button>

@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import ExerciseCard from "./ExerciseCard";
 import { useMemo, useState } from "react";
 import { cn } from "../lib/utils";
-import { searchExercisesByName, DbExercise } from "../lib/exerciseDb";
+import { searchExercisesByName, DbExercise, exerciseNameMatchesSearch, getExerciseSearchTerms } from "../lib/exerciseDb";
 import { fetchAndCacheImage, getCachedImage } from "../lib/imageCache";
 
 interface WorkoutLogProps {
@@ -28,11 +28,19 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
     [exerciseTemplates]
   );
   const matchingExerciseTemplates = useMemo(() => {
-    const search = newExerciseName.trim().toLowerCase();
+    const search = newExerciseName.trim();
     if (!search) return exerciseTemplates.slice(0, 6);
+    const searchTerms = getExerciseSearchTerms(search);
 
     return exerciseTemplates
-      .filter((template) => template.name.toLowerCase().includes(search))
+      .filter((template) => exerciseNameMatchesSearch(template.name, searchTerms))
+      .sort((a, b) => {
+        const normalizedSearch = search.toLowerCase();
+        const aHasPhrase = a.name.toLowerCase().includes(normalizedSearch);
+        const bHasPhrase = b.name.toLowerCase().includes(normalizedSearch);
+        if (aHasPhrase === bHasPhrase) return a.name.localeCompare(b.name);
+        return aHasPhrase ? -1 : 1;
+      })
       .slice(0, 6);
   }, [exerciseTemplates, newExerciseName]);
 
@@ -234,7 +242,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-zinc-900 p-8 rounded-3xl border-2 border-lime-500 shadow-[0_20px_50px_rgba(132,204,22,0.15)]"
+                className="w-full min-w-0 overflow-hidden bg-zinc-900 p-5 sm:p-8 rounded-3xl border-2 border-lime-500 shadow-[0_20px_50px_rgba(132,204,22,0.15)]"
               >
                 <label className="text-[10px] font-black text-zinc-500 uppercase mb-3 block tracking-widest italic">Exercise Name</label>
                 <input
@@ -268,17 +276,19 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
                         <button
                           key={template.name}
                           onClick={() => addExercise(template)}
-                          className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-left hover:border-lime-500 active:scale-[0.98] transition-all"
+                          className="flex min-w-0 items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-left hover:border-lime-500 active:scale-[0.98] transition-all"
                         >
-                          <div className="w-12 h-12 rounded-xl bg-zinc-900 overflow-hidden border border-zinc-800 flex items-center justify-center">
+                          <div className="w-12 h-12 shrink-0 rounded-xl bg-zinc-900 overflow-hidden border border-zinc-800 flex items-center justify-center">
                             {template.photo ? (
                               <img src={template.photo} alt={template.name} className="w-full h-full object-cover" />
                             ) : (
                               <Plus className="w-4 h-4 text-zinc-700" />
                             )}
                           </div>
-                          <span className="flex-1 text-sm font-black uppercase tracking-wider text-white italic">{template.name}</span>
-                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">
+                          <span className="flex-1 min-w-0 break-words text-xs sm:text-sm font-black uppercase tracking-wide sm:tracking-wider text-white italic leading-tight">
+                            {template.name}
+                          </span>
+                          <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-zinc-600">
                             {template.trackingType === "reps-only" ? "Reps" : "Kg"}
                           </span>
                         </button>
@@ -297,14 +307,14 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
                         <button
                           key={`db-${dbEx.name}`}
                           onClick={() => addDbExercise(dbEx)}
-                          className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-left hover:border-cyan-500 active:scale-[0.98] transition-all"
+                          className="flex min-w-0 items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-left hover:border-cyan-500 active:scale-[0.98] transition-all"
                         >
-                          <div className="w-12 h-12 rounded-xl bg-zinc-900 overflow-hidden border border-zinc-800 flex items-center justify-center">
+                          <div className="w-12 h-12 shrink-0 rounded-xl bg-zinc-900 overflow-hidden border border-zinc-800 flex items-center justify-center">
                             <Database className="w-4 h-4 text-cyan-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <span className="text-sm font-black uppercase tracking-wider text-white italic block truncate">{dbEx.name}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{dbEx.target} · {dbEx.body_part}</span>
+                            <span className="block break-words text-xs sm:text-sm font-black uppercase tracking-wide sm:tracking-wider text-white italic leading-tight">{dbEx.name}</span>
+                            <span className="block truncate text-[9px] font-black uppercase tracking-widest text-zinc-600">{dbEx.target} · {dbEx.body_part}</span>
                           </div>
                         </button>
                       ))}

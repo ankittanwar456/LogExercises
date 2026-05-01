@@ -31,9 +31,23 @@ export interface WorkoutDay {
   endTime?: string;
 }
 
+export interface BodyWeightEntry {
+  id: string;
+  weight: number;
+  recordedAt: string;
+}
+
+export interface UserProfile {
+  age?: number;
+  weight?: number;
+  height?: number;
+  bodyWeightHistory: BodyWeightEntry[];
+}
+
 export interface AppState {
   workouts: Record<string, WorkoutDay>;
   customExercises: ExerciseTemplate[];
+  profile: UserProfile;
 }
 
 export interface ExerciseTemplate {

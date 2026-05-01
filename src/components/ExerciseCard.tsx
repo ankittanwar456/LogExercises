@@ -51,6 +51,8 @@ export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked }:
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trackingType = exercise.trackingType ?? "weighted";
+  const titleLength = exercise.name.trim().length;
+  const titleSizeClass = titleLength > 44 ? "text-base" : titleLength > 34 ? "text-lg" : titleLength > 24 ? "text-xl" : "text-2xl";
 
   const addSet = (weight: number | null, reps: number, nextTrackingType: ExerciseTrackingType) => {
     const newSet: SetEntry = {
@@ -95,19 +97,19 @@ export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked }:
       animate={{ opacity: 1, y: 0 }}
       className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 shadow-sm space-y-6"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 gap-4">
           <div 
             onClick={() => !isLocked && fileInputRef.current?.click()}
             className={cn(
-              "w-16 h-16 rounded-2xl bg-zinc-950 flex items-center justify-center overflow-hidden cursor-pointer border border-dashed border-zinc-800",
-              exercise.photo && "border-none"
+              "h-16 w-16 shrink-0 rounded-2xl flex items-center justify-center overflow-hidden cursor-pointer",
+              exercise.photo ? "bg-zinc-950" : "bg-zinc-100"
             )}
           >
             {exercise.photo ? (
               <img src={exercise.photo} className="w-full h-full object-cover" alt={exercise.name} />
             ) : (
-              <Camera className="w-6 h-6 text-zinc-700" />
+              <Camera className="w-6 h-6 text-zinc-500" />
             )}
             <input 
               type="file" 
@@ -118,8 +120,10 @@ export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked }:
               disabled={isLocked}
             />
           </div>
-          <div>
-            <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">{exercise.name}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className={cn(titleSizeClass, "font-black text-white italic uppercase tracking-tighter break-words leading-tight")}>
+              {exercise.name}
+            </h3>
             <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest italic">
               {exercise.sets.length} Completed Sets
             </p>
