@@ -22,6 +22,21 @@ $env:JAVA_HOME = $javaHome
 $env:ANDROID_HOME = $androidSdk
 $env:ANDROID_SDK_ROOT = $androidSdk
 
+Push-Location $projectRoot
+try {
+    & npm run build
+    if ($LASTEXITCODE -ne 0) {
+        throw "Web build failed with exit code $LASTEXITCODE"
+    }
+
+    & npm run android:sync
+    if ($LASTEXITCODE -ne 0) {
+        throw "Android asset sync failed with exit code $LASTEXITCODE"
+    }
+} finally {
+    Pop-Location
+}
+
 Push-Location $androidDir
 try {
     & $gradleWrapper assembleDebug
