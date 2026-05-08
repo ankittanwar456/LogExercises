@@ -1,8 +1,8 @@
 import { motion } from "motion/react";
 import { Plus, Trash2, Camera, X } from "lucide-react";
 import { ExerciseEntry, ExerciseTrackingType, SetEntry } from "../types";
-import { cn } from "../lib/utils";
-import React, { useState, useRef } from "react";
+import { cn, scrollFocusedFieldIntoView } from "../lib/utils";
+import React, { useEffect, useRef, useState } from "react";
 
 const MAX_PHOTO_SIZE = 320;
 const PHOTO_QUALITY = 0.72;
@@ -195,7 +195,14 @@ function SetForm({
 }) {
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
   const isWeighted = trackingType === "weighted";
+
+  useEffect(() => {
+    if (formRef.current) {
+      scrollFocusedFieldIntoView(formRef.current);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +212,7 @@ function SetForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6 bg-zinc-950 rounded-2xl space-y-6 border border-zinc-800">
+    <form ref={formRef} onSubmit={handleSubmit} data-keyboard-focus-target className="p-6 bg-zinc-950 rounded-2xl space-y-6 border border-zinc-800">
       <div className={cn("grid gap-4", isWeighted ? "grid-cols-2" : "grid-cols-1")}>
         {isWeighted && (
           <div className="space-y-2">
@@ -215,6 +222,7 @@ function SetForm({
               type="number"
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
+              onFocus={(e) => scrollFocusedFieldIntoView(e.currentTarget.closest("[data-keyboard-focus-target]") ?? e.currentTarget)}
               placeholder="0"
               className="w-full bg-zinc-950 border-b-4 border-lime-500 text-4xl font-black p-2 outline-none text-white italic placeholder:text-zinc-900 focus:border-white transition-colors"
             />
@@ -227,6 +235,7 @@ function SetForm({
             type="number"
             value={reps}
             onChange={(e) => setReps(e.target.value)}
+            onFocus={(e) => scrollFocusedFieldIntoView(e.currentTarget.closest("[data-keyboard-focus-target]") ?? e.currentTarget)}
             placeholder="0"
             className="w-full bg-zinc-950 border-b-4 border-zinc-700 text-4xl font-black p-2 outline-none text-white italic placeholder:text-zinc-900 focus:border-lime-500 transition-colors"
           />

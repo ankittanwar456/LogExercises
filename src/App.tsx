@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { App as CapacitorApp } from "@capacitor/app";
 import { format, isFuture, isSameDay } from "date-fns";
 import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, TrendingUp } from "lucide-react";
 import { AppState, ExerciseTemplate, UserProfile, WorkoutDay } from "./types";
@@ -14,6 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 type Tab = "history" | "today" | "stats" | "settings";
 
 const SAVE_DEBOUNCE_MS = 750;
+const BACK_EXIT_WINDOW_MS = 2_000;
 
 const finishStaleWorkouts = (state: AppState, today = format(new Date(), "yyyy-MM-dd")): AppState => {
   let didChange = false;
@@ -54,13 +56,108 @@ export default function App() {
   const [state, setState] = useState<AppState>(loadInitialState);
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [historyDate, setHistoryDate] = useState<Date | null>(null);
+  const [settingsPage, setSettingsPage] = useState<"main" | "profile" | "exercises">("main");
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const [isKeyboardActive, setIsKeyboardActive] = useState(false);
   const didHydrateRef = useRef(false);
+  const lastBackPressRef = useRef(0);
+  const exitPromptTimeoutRef = useRef<number | null>(null);
   const [dbReady, setDbReady] = useState(isExerciseDbReady);
 
   useEffect(() => {
     initExerciseDb()
       .then(() => setDbReady(true))
       .catch((err) => console.error("Failed to load exercise DB", err));
+  }, []);
+
+  useEffect(() => {
+    const clickTopCancelAction = () => {
+      const cancelButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-back-cancel]"))
+        .filter((button) => !button.disabled && button.offsetParent !== null);
+      const cancelButton = cancelButtons.at(-1);
+
+      if (!cancelButton) return false;
+
+      cancelButton.click();
+      return true;
+    };
+
+    const showPressAgainPrompt = () => {
+      setShowExitPrompt(true);
+
+      if (exitPromptTimeoutRef.current !== null) {
+        window.clearTimeout(exitPromptTimeoutRef.current);
+      }
+
+      exitPromptTimeoutRef.current = window.setTimeout(() => {
+        setShowExitPrompt(false);
+        exitPromptTimeoutRef.current = null;
+      }, BACK_EXIT_WINDOW_MS);
+    };
+
+    const handleBackButton = async () => {
+      if (clickTopCancelAction()) return;
+
+      if (activeTab === "history" && historyDate) {
+        setHistoryDate(null);
+        return;
+      }
+
+      if (activeTab === "settings" && settingsPage !== "main") {
+        setSettingsPage("main");
+        return;
+      }
+
+      if (activeTab !== "today") {
+        setHistoryDate(null);
+        setActiveTab("today");
+        return;
+      }
+
+      const now = Date.now();
+
+      if (now - lastBackPressRef.current <= BACK_EXIT_WINDOW_MS) {
+        await CapacitorApp.exitApp();
+        return;
+      }
+
+      lastBackPressRef.current = now;
+      showPressAgainPrompt();
+    };
+
+    const listenerPromise = CapacitorApp.addListener("backButton", handleBackButton);
+
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+
+      if (exitPromptTimeoutRef.current !== null) {
+        window.clearTimeout(exitPromptTimeoutRef.current);
+      }
+    };
+  }, [activeTab, historyDate, settingsPage]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const initialHeight = viewport?.height ?? window.innerHeight;
+
+    const updateKeyboardState = () => {
+      const activeElement = document.activeElement;
+      const isEditing = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
+      const currentHeight = viewport?.height ?? window.innerHeight;
+      const keyboardLikelyOpen = initialHeight - currentHeight > 120;
+
+      setIsKeyboardActive(isEditing && keyboardLikelyOpen);
+    };
+
+    window.addEventListener("focusin", updateKeyboardState);
+    window.addEventListener("focusout", updateKeyboardState);
+    viewport?.addEventListener("resize", updateKeyboardState);
+
+    return () => {
+      window.removeEventListener("focusin", updateKeyboardState);
+      window.removeEventListener("focusout", updateKeyboardState);
+      viewport?.removeEventListener("resize", updateKeyboardState);
+    };
   }, []);
 
   useEffect(() => {
@@ -220,7 +317,10 @@ export default function App() {
 
   const NavItem = ({ id, icon: Icon, label }: { id: Tab; icon: any; label: string }) => (
     <button
-      onClick={() => setActiveTab(id)}
+      onClick={() => {
+        setActiveTab(id);
+        if (id !== "history") setHistoryDate(null);
+      }}
       className={cn(
         "flex flex-col items-center justify-center gap-1 flex-1 py-4 transition-all duration-300",
         activeTab === id ? "text-lime-500 scale-110" : "text-zinc-600 hover:text-zinc-400"
@@ -233,7 +333,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-lime-500 selection:text-black">
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className={cn("flex-1 overflow-y-auto transition-[padding] duration-200", isKeyboardActive ? "pb-4" : "pb-24")}>
         <AnimatePresence mode="wait">
           {activeTab === "history" && (
             <motion.div
@@ -338,6 +438,8 @@ export default function App() {
               <Settings
                 data={state}
                 customExercises={state.customExercises}
+                activePage={settingsPage}
+                onActivePageChange={setSettingsPage}
                 onUpdateProfile={updateProfile}
                 onUpdateExercise={updateCustomExercise}
                 onDeleteExercise={deleteCustomExercise}
@@ -347,12 +449,27 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-2xl border-t border-zinc-800 flex items-center justify-around px-4 pb-safe z-30 shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
-        <NavItem id="history" icon={CalendarIcon} label="History" />
-        <NavItem id="today" icon={ClipboardList} label="Workout" />
-        <NavItem id="stats" icon={TrendingUp} label="Progress" />
-        <NavItem id="settings" icon={SettingsIcon} label="Settings" />
-      </nav>
+      {!isKeyboardActive && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-2xl border-t border-zinc-800 flex items-center justify-around px-4 pb-safe z-30 shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
+          <NavItem id="history" icon={CalendarIcon} label="History" />
+          <NavItem id="today" icon={ClipboardList} label="Workout" />
+          <NavItem id="stats" icon={TrendingUp} label="Progress" />
+          <NavItem id="settings" icon={SettingsIcon} label="Settings" />
+        </nav>
+      )}
+
+      <AnimatePresence>
+        {showExitPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-2xl border border-lime-500/30 bg-zinc-900 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-lime-500 shadow-2xl shadow-lime-500/10"
+          >
+            Press again to close app
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { WorkoutDay, ExerciseEntry, ExerciseTemplate, ExerciseTrackingType } fro
 import { format } from "date-fns";
 import ExerciseCard from "./ExerciseCard";
 import { useEffect, useMemo, useState } from "react";
-import { cn } from "../lib/utils";
+import { cn, scrollFocusedFieldIntoView } from "../lib/utils";
 import { searchExercisesByName, DbExercise, exerciseNameMatchesSearch, getExerciseSearchTerms } from "../lib/exerciseDb";
 import { fetchAndCacheImage, getCachedImage } from "../lib/imageCache";
 
@@ -243,8 +243,8 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
   }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950">
-      <div className="sticky top-0 z-20 bg-zinc-950/80 backdrop-blur-md px-4 py-8 border-b border-zinc-900 mb-6">
+    <div className="flex min-h-full flex-col bg-zinc-950">
+      <div className="bg-zinc-950 px-4 py-8 border-b border-zinc-900 mb-6">
         <div className="flex items-center justify-between mb-4">
           <button onClick={onBack} className="p-2 -ml-2 text-zinc-600 hover:text-white transition-colors">
             <ArrowLeft className="w-6 h-6" />
@@ -291,8 +291,9 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
           <div className="space-y-4 pt-4">
             {isAddingExercise ? (
               <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                data-keyboard-focus-target
                 className="w-full min-w-0 overflow-hidden bg-zinc-900 p-5 sm:p-8 rounded-3xl border-2 border-lime-500 shadow-[0_20px_50px_rgba(132,204,22,0.15)]"
               >
                 <label className="text-[10px] font-black text-zinc-500 uppercase mb-3 block tracking-widest italic">Exercise Name</label>
@@ -300,6 +301,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
                   autoFocus
                   value={newExerciseName}
                   onChange={(e) => setNewExerciseName(e.target.value)}
+                  onFocus={(e) => scrollFocusedFieldIntoView(e.currentTarget.closest("[data-keyboard-focus-target]") ?? e.currentTarget)}
                   placeholder="BENCH PRESS"
                   className="w-full text-3xl font-black p-0 border-none focus:ring-0 placeholder:text-zinc-800 text-white italic uppercase tracking-tighter bg-transparent"
                   onKeyDown={(e) => e.key === 'Enter' && addExercise()}

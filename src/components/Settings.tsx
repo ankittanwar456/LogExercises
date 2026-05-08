@@ -60,14 +60,14 @@ const readCompressedPhoto = (file: File): Promise<string> =>
 interface SettingsProps {
   data: AppState;
   customExercises: ExerciseTemplate[];
+  activePage: "main" | "profile" | "exercises";
+  onActivePageChange: (page: "main" | "profile" | "exercises") => void;
   onUpdateProfile: (profile: UserProfile) => void;
   onUpdateExercise: (previousName: string, exercise: ExerciseTemplate) => void;
   onDeleteExercise: (name: string) => void;
 }
 
-export default function Settings({ data, customExercises, onUpdateProfile, onUpdateExercise, onDeleteExercise }: SettingsProps) {
-  const [activePage, setActivePage] = useState<"main" | "profile" | "exercises">("main");
-
+export default function Settings({ data, customExercises, activePage, onActivePageChange, onUpdateProfile, onUpdateExercise, onDeleteExercise }: SettingsProps) {
   const exportData = async () => {
     const zip = new JSZip();
     const exportedCustomExercises = data.customExercises.map((exercise) => {
@@ -101,7 +101,7 @@ export default function Settings({ data, customExercises, onUpdateProfile, onUpd
     return (
       <ExercisesSettingsPage
         customExercises={customExercises}
-        onBack={() => setActivePage("main")}
+        onBack={() => onActivePageChange("main")}
         onUpdateExercise={onUpdateExercise}
         onDeleteExercise={onDeleteExercise}
       />
@@ -112,7 +112,7 @@ export default function Settings({ data, customExercises, onUpdateProfile, onUpd
     return (
       <ProfileSettingsPage
         profile={data.profile}
-        onBack={() => setActivePage("main")}
+        onBack={() => onActivePageChange("main")}
         onUpdateProfile={onUpdateProfile}
       />
     );
@@ -127,7 +127,7 @@ export default function Settings({ data, customExercises, onUpdateProfile, onUpd
 
       <button
         type="button"
-        onClick={() => setActivePage("profile")}
+        onClick={() => onActivePageChange("profile")}
         className="w-full rounded-3xl bg-zinc-900 border border-zinc-800 p-5 flex items-center gap-4 text-left active:scale-[0.99] transition-transform"
       >
         <div className="w-14 h-14 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
@@ -143,7 +143,7 @@ export default function Settings({ data, customExercises, onUpdateProfile, onUpd
 
       <button
         type="button"
-        onClick={() => setActivePage("exercises")}
+        onClick={() => onActivePageChange("exercises")}
         className="w-full rounded-3xl bg-zinc-900 border border-zinc-800 p-5 flex items-center gap-4 text-left active:scale-[0.99] transition-transform"
       >
         <div className="w-14 h-14 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0">
