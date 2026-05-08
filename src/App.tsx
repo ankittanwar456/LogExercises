@@ -53,7 +53,7 @@ const loadInitialState = (): AppState => {
 export default function App() {
   const [state, setState] = useState<AppState>(loadInitialState);
   const [activeTab, setActiveTab] = useState<Tab>("today");
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [historyDate, setHistoryDate] = useState<Date | null>(null);
   const didHydrateRef = useRef(false);
   const [dbReady, setDbReady] = useState(isExerciseDbReady);
 
@@ -88,9 +88,11 @@ export default function App() {
     };
   }, [state]);
 
-  const dateStr = format(selectedDate, "yyyy-MM-dd");
+  const today = new Date();
+  const dateStr = format(today, "yyyy-MM-dd");
   const currentWorkout = state.workouts[dateStr] || null;
-  const isSelectedToday = isSameDay(selectedDate, new Date());
+  const historyDateStr = historyDate ? format(historyDate, "yyyy-MM-dd") : null;
+  const historyWorkout = historyDateStr ? state.workouts[historyDateStr] || null : null;
   const exerciseTemplates = useMemo(
     () => mergeExerciseTemplates(defaultExerciseTemplates, state.customExercises),
     [state.customExercises]
@@ -111,8 +113,8 @@ export default function App() {
   const handleSelectDate = useCallback((date: Date) => {
     if (isFuture(date) && !isSameDay(date, new Date())) return;
 
-    setSelectedDate(date);
-    setActiveTab("today");
+    setHistoryDate(date);
+    setActiveTab("history");
   }, []);
 
   const saveExerciseTemplate = useCallback((template: ExerciseTemplate) => {
@@ -235,21 +237,36 @@ export default function App() {
         <AnimatePresence mode="wait">
           {activeTab === "history" && (
             <motion.div
-              key="history"
+              key={historyDate ? "history-detail" : "history"}
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
-              className="p-6 pt-12 space-y-12"
+              className={historyDate ? "h-full" : "p-6 pt-12 space-y-12"}
             >
-              <div className="px-2">
-                <h1 className="text-7xl font-black tracking-tighter leading-none mb-2 text-white italic">HISTORY</h1>
-                <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-[10px] italic">Your Training Evolution</p>
-              </div>
-              <Calendar
-                workouts={state.workouts}
-                selectedDate={selectedDate}
-                onSelectDate={handleSelectDate}
-              />
+              {historyDate ? (
+                <WorkoutLog
+                  date={historyDate}
+                  workout={historyWorkout}
+                  canEdit={false}
+                  exerciseTemplates={exerciseTemplates}
+                  dbReady={dbReady}
+                  onUpdate={updateWorkout}
+                  onSaveExerciseTemplate={saveExerciseTemplate}
+                  onBack={() => setHistoryDate(null)}
+                />
+              ) : (
+                <>
+                  <div className="px-2">
+                    <h1 className="text-7xl font-black tracking-tighter leading-none mb-2 text-white italic">HISTORY</h1>
+                    <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-[10px] italic">Your Training Evolution</p>
+                  </div>
+                  <Calendar
+                    workouts={state.workouts}
+                    selectedDate={today}
+                    onSelectDate={handleSelectDate}
+                  />
+                </>
+              )}
             </motion.div>
           )}
 
@@ -262,14 +279,17 @@ export default function App() {
               className="h-full"
             >
               <WorkoutLog
-                date={selectedDate}
+                date={today}
                 workout={currentWorkout}
-                canEdit={isSelectedToday}
+                canEdit={true}
                 exerciseTemplates={exerciseTemplates}
                 dbReady={dbReady}
                 onUpdate={updateWorkout}
                 onSaveExerciseTemplate={saveExerciseTemplate}
-                onBack={() => setActiveTab("history")}
+                onBack={() => {
+                  setHistoryDate(null);
+                  setActiveTab("history");
+                }}
               />
             </motion.div>
           )}

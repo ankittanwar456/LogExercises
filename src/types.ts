@@ -29,6 +29,7 @@ export interface WorkoutDay {
   isCompleted: boolean;
   startTime: string;
   endTime?: string;
+  totalDurationMs?: number;
 }
 
 export interface BodyWeightEntry {

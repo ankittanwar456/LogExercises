@@ -3,7 +3,7 @@ import { Plus, CheckCircle2, Play, Circle, Calendar as CalendarIcon, ArrowLeft, 
 import { WorkoutDay, ExerciseEntry, ExerciseTemplate, ExerciseTrackingType } from "../types";
 import { format } from "date-fns";
 import ExerciseCard from "./ExerciseCard";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "../lib/utils";
 import { searchExercisesByName, DbExercise, exerciseNameMatchesSearch, getExerciseSearchTerms } from "../lib/exerciseDb";
 import { fetchAndCacheImage, getCachedImage } from "../lib/imageCache";
@@ -23,6 +23,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState("");
   const [newExerciseTrackingType, setNewExerciseTrackingType] = useState<ExerciseTrackingType>("weighted");
+  const [now, setNow] = useState(Date.now());
   const exerciseTemplatesByName = useMemo(
     () => new Map(exerciseTemplates.map((template) => [template.name.trim().toLowerCase(), template])),
     [exerciseTemplates]
@@ -55,6 +56,35 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
       .slice(0, 6);
   }, [dbReady, newExerciseName, matchingExerciseTemplates]);
 
+  useEffect(() => {
+    if (!workout || workout.isCompleted) return;
+
+    const intervalId = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(intervalId);
+  }, [workout]);
+
+  const formatWorkoutDuration = (durationMs: number) => {
+    const totalMinutes = Math.max(0, Math.floor(durationMs / 60_000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours === 0) return `${minutes} min`;
+    return `${hours} ${hours === 1 ? "hour" : "hours"} ${minutes.toString().padStart(2, "0")} min`;
+  };
+
+  const getWorkoutDurationText = (currentWorkout: WorkoutDay) => {
+    if (currentWorkout.isCompleted && currentWorkout.totalDurationMs === undefined) return null;
+
+    const accumulatedDurationMs = currentWorkout.totalDurationMs ?? 0;
+    const durationMs = currentWorkout.isCompleted
+      ? accumulatedDurationMs
+      : accumulatedDurationMs + Math.max(0, now - new Date(currentWorkout.startTime).getTime());
+
+    return formatWorkoutDuration(durationMs);
+  };
+
+  const workoutDurationText = workout ? getWorkoutDurationText(workout) : null;
+
   const withoutWorkoutPhoto = (exercise: ExerciseEntry): ExerciseEntry => {
     const { photo, ...exerciseWithoutPhoto } = exercise;
     return exerciseWithoutPhoto;
@@ -67,6 +97,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
       exercises: [],
       isCompleted: false,
       startTime: new Date().toISOString(),
+      totalDurationMs: 0,
     });
   };
 
@@ -157,10 +188,12 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
 
   const completeWorkout = () => {
     if (!workout) return;
+    const endTime = new Date();
     onUpdate({
       ...workout,
       isCompleted: true,
-      endTime: new Date().toISOString()
+      endTime: endTime.toISOString(),
+      totalDurationMs: (workout.totalDurationMs ?? 0) + Math.max(0, endTime.getTime() - new Date(workout.startTime).getTime())
     });
   };
 
@@ -168,13 +201,20 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
     if (!workout) return;
     onUpdate({
       ...workout,
-      isCompleted: false
+      isCompleted: false,
+      startTime: new Date().toISOString(),
+      endTime: undefined
     });
   };
 
   if (!workout) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 py-20 text-center space-y-6">
+      <div className="relative flex flex-col items-center justify-center p-8 py-20 text-center space-y-6">
+        {!canEdit && (
+          <button onClick={onBack} className="absolute left-4 top-8 p-2 text-zinc-600 hover:text-white transition-colors">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+        )}
         <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 flex items-center justify-center rounded-full">
           <CalendarIcon className="w-10 h-10 text-zinc-700" />
         </div>
@@ -217,7 +257,18 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
         <h1 className="text-5xl font-black text-white italic tracking-tighter leading-none mb-1 uppercase">
           {format(date, "EEEE")}
         </h1>
-        <p className="text-zinc-500 font-bold uppercase tracking-[0.2em] text-[10px] italic">{format(date, "MMMM do, yyyy")}</p>
+        <div className="space-y-1 text-zinc-500 font-bold uppercase tracking-[0.2em] text-[10px] italic">
+          <p>{format(date, "MMMM do, yyyy")}</p>
+          <div className="flex items-center gap-3">
+            <span>{workout.exercises.length} {workout.exercises.length === 1 ? "Exercise" : "Exercises"}</span>
+            {workoutDurationText && (
+              <>
+                <span className="text-zinc-700">/</span>
+                <span>{workoutDurationText}</span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 px-6 pb-32 space-y-6 max-w-xl mx-auto w-full">
