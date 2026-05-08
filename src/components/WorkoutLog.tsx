@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import ExerciseCard from "./ExerciseCard";
 import { useEffect, useMemo, useState } from "react";
 import { cn, scrollFocusedFieldIntoView } from "../lib/utils";
-import { searchExercisesByName, DbExercise, exerciseNameMatchesSearch, getExerciseSearchTerms } from "../lib/exerciseDb";
+import { searchExercisesByName, DbExercise, exerciseNameMatchesSearch, getExerciseNameSearchRank, getExerciseSearchTerms } from "../lib/exerciseDb";
 import { fetchAndCacheImage, getCachedImage } from "../lib/imageCache";
 
 interface WorkoutLogProps {
@@ -36,13 +36,10 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
     return exerciseTemplates
       .filter((template) => exerciseNameMatchesSearch(template.name, searchTerms))
       .sort((a, b) => {
-        const normalizedSearch = search.toLowerCase();
-        const aHasPhrase = a.name.toLowerCase().includes(normalizedSearch);
-        const bHasPhrase = b.name.toLowerCase().includes(normalizedSearch);
-        if (aHasPhrase === bHasPhrase) return a.name.localeCompare(b.name);
-        return aHasPhrase ? -1 : 1;
+        const rankDifference = getExerciseNameSearchRank(a.name, search) - getExerciseNameSearchRank(b.name, search);
+        return rankDifference || a.name.localeCompare(b.name);
       })
-      .slice(0, 6);
+      .slice(0, 30);
   }, [exerciseTemplates, newExerciseName]);
 
   const matchingDbExercises = useMemo(() => {
@@ -51,9 +48,9 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
     if (!search) return [];
 
     const localNames = new Set(matchingExerciseTemplates.map((t) => t.name.trim().toLowerCase()));
-    return searchExercisesByName(search, 10)
+    return searchExercisesByName(search, 50)
       .filter((ex) => !localNames.has(ex.name.trim().toLowerCase()))
-      .slice(0, 6);
+      .slice(0, 30);
   }, [dbReady, newExerciseName, matchingExerciseTemplates]);
 
   useEffect(() => {
@@ -324,7 +321,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
                 {matchingExerciseTemplates.length > 0 && (
                   <div className="mt-6 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 italic">Tap a match</p>
-                    <div className="grid gap-2">
+                    <div className="grid max-h-80 gap-2 overflow-y-auto pr-1">
                       {matchingExerciseTemplates.map((template) => (
                         <button
                           key={template.name}
@@ -355,7 +352,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
                       <Database className="w-3 h-3" />
                       From exercise database
                     </p>
-                    <div className="grid gap-2">
+                    <div className="grid max-h-80 gap-2 overflow-y-auto pr-1">
                       {matchingDbExercises.map((dbEx) => (
                         <button
                           key={`db-${dbEx.name}`}

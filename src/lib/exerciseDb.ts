@@ -69,6 +69,20 @@ export const exerciseNameMatchesSearch = (name: string, searchTerms: string[]): 
   return searchTerms.every((term) => normalizedName.includes(term));
 };
 
+export const getExerciseNameSearchRank = (name: string, query: string): number => {
+  const normalizedName = name.trim().toLowerCase();
+  const normalizedQuery = query.trim().toLowerCase();
+  const searchTerms = getExerciseSearchTerms(query);
+
+  if (!normalizedQuery) return 0;
+  if (normalizedName === normalizedQuery) return 0;
+  if (normalizedName.startsWith(normalizedQuery)) return 1;
+  if (normalizedName.includes(normalizedQuery)) return 2;
+  if (searchTerms.every((term) => normalizedName.startsWith(term) || normalizedName.includes(` ${term}`))) return 3;
+  if (searchTerms.every((term) => normalizedName.includes(term))) return 4;
+  return 5;
+};
+
 export function searchExercisesByName(query: string, limit = 20): DbExercise[] {
   const trimmed = query.trim();
   if (!trimmed) return queryAll("SELECT * FROM exercises ORDER BY name LIMIT $limit", { $limit: limit });
@@ -80,10 +94,24 @@ export function searchExercisesByName(query: string, limit = 20): DbExercise[] {
     `SELECT * FROM exercises
      WHERE ${whereClause}
      ORDER BY
-       CASE WHEN name LIKE $phrase THEN 0 ELSE 1 END,
+       CASE
+         WHEN lower(name) = $normalizedPhrase THEN 0
+         WHEN lower(name) LIKE $phraseStart THEN 1
+         WHEN lower(name) LIKE $phrase THEN 2
+         WHEN ${searchTerms.map((_, index) => `(lower(name) LIKE $termStart${index} OR lower(name) LIKE $wordStart${index})`).join(" AND ")} THEN 3
+         ELSE 4
+       END,
        name
      LIMIT $limit`,
-    { ...params, $phrase: `%${trimmed}%`, $limit: limit }
+    {
+      ...params,
+      ...Object.fromEntries(searchTerms.map((term, index) => [`$termStart${index}`, `${term}%`])),
+      ...Object.fromEntries(searchTerms.map((term, index) => [`$wordStart${index}`, `% ${term}%`])),
+      $normalizedPhrase: trimmed.toLowerCase(),
+      $phraseStart: `${trimmed.toLowerCase()}%`,
+      $phrase: `%${trimmed.toLowerCase()}%`,
+      $limit: limit,
+    }
   );
 }
 
