@@ -331,9 +331,15 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-lime-500 selection:text-black">
-      <main className={cn("flex-1 overflow-y-auto transition-[padding] duration-200", isKeyboardActive ? "pb-4" : "pb-24")}>
-        <AnimatePresence mode="wait">
-          {activeTab === "history" && (
+      <main className={cn("flex-1 overflow-hidden transition-[padding] duration-200", isKeyboardActive ? "pb-4" : "pb-24")}>
+        {/* History tab is always mounted so scroll position and state survive tab switches */}
+        <div
+          className={cn(
+            "h-full overflow-y-auto",
+            activeTab !== "history" && "hidden"
+          )}
+        >
+          <AnimatePresence mode="wait">
             <motion.div
               key={historyDate ? "history-detail" : "history"}
               initial={{ opacity: 0, scale: 0.98 }}
@@ -366,8 +372,11 @@ export default function App() {
                 </>
               )}
             </motion.div>
-          )}
+          </AnimatePresence>
+        </div>
 
+        <div className={cn("h-full overflow-y-auto", activeTab === "history" && "hidden")}>
+        <AnimatePresence mode="wait">
           {activeTab === "today" && (
             <motion.div
               key="today"
@@ -444,6 +453,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </main>
 
       {!isKeyboardActive && (
