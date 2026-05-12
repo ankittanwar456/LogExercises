@@ -109,7 +109,6 @@ export default function App() {
       }
 
       if (activeTab !== "today") {
-        setHistoryDate(null);
         setActiveTab("today");
         return;
       }
@@ -319,7 +318,6 @@ export default function App() {
     <button
       onClick={() => {
         setActiveTab(id);
-        if (id !== "history") setHistoryDate(null);
       }}
       className={cn(
         "flex flex-col items-center justify-center gap-1 flex-1 py-4 transition-all duration-300",
@@ -387,7 +385,6 @@ export default function App() {
                 onUpdate={updateWorkout}
                 onSaveExerciseTemplate={saveExerciseTemplate}
                 onBack={() => {
-                  setHistoryDate(null);
                   setActiveTab("history");
                 }}
               />
