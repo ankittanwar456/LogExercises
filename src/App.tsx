@@ -9,6 +9,7 @@ import { initExerciseDb, isExerciseDbReady } from "./lib/exerciseDb";
 import Calendar from "./components/Calendar";
 import WorkoutLog from "./components/WorkoutLog";
 import Settings from "./components/Settings";
+import Insights from "./components/Insights";
 import { cn } from "./lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -409,31 +410,8 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="p-8 pt-20 flex flex-col items-center justify-center text-center space-y-8"
             >
-              <div className="w-32 h-32 bg-zinc-900 border border-zinc-800 flex items-center justify-center rounded-full shadow-[0_0_50px_rgba(132,204,22,0.1)]">
-                <TrendingUp className="w-12 h-12 text-lime-500" />
-              </div>
-              <div className="space-y-4">
-                <h2 className="text-5xl font-black italic tracking-tighter text-white">INSIGHTS</h2>
-                <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-[10px] italic max-w-xs mx-auto">
-                  Advanced biometric tracking and analytical visualizations are currently in synchronization. 
-                </p>
-              </div>
-              <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-xs">
-                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-2 italic">
-                  <span>System Status</span>
-                  <span className="text-lime-500">Preparing...</span>
-                </div>
-                <div className="w-full h-1 bg-zinc-950 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ x: "-100%" }}
-                    animate={{ x: "100%" }}
-                    transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                    className="w-1/3 h-full bg-lime-500"
-                  />
-                </div>
-              </div>
+              <Insights state={state} dbReady={dbReady} />
             </motion.div>
           )}
 
