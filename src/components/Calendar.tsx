@@ -12,7 +12,6 @@ import {
   startOfWeek,
   endOfWeek
 } from "date-fns";
-import { useState } from "react";
 import { ChevronLeft, ChevronRight, Activity, Check } from "lucide-react";
 import { cn } from "../lib/utils";
 import { WorkoutDay } from "../types";
@@ -21,10 +20,17 @@ interface CalendarProps {
   workouts: Record<string, WorkoutDay>;
   onSelectDate: (date: Date) => void;
   selectedDate: Date;
+  viewMonth: Date;
+  onViewMonthChange: (month: Date) => void;
 }
 
-export default function Calendar({ workouts, onSelectDate, selectedDate }: CalendarProps) {
-  const [viewMonth, setViewMonth] = useState(startOfMonth(selectedDate));
+export default function Calendar({
+  workouts,
+  onSelectDate,
+  selectedDate,
+  viewMonth,
+  onViewMonthChange,
+}: CalendarProps) {
 
   const monthStart = startOfMonth(viewMonth);
   const monthEnd = endOfMonth(monthStart);
@@ -41,9 +47,9 @@ export default function Calendar({ workouts, onSelectDate, selectedDate }: Calen
   const monthlyWorkoutDays = Object.keys(workouts).filter((date) => date.startsWith(format(monthStart, "yyyy-MM"))).length;
 
   const nextMonth = () => {
-    if (canGoNextMonth) setViewMonth(addMonths(viewMonth, 1));
+    if (canGoNextMonth) onViewMonthChange(addMonths(viewMonth, 1));
   };
-  const prevMonth = () => setViewMonth(subMonths(viewMonth, 1));
+  const prevMonth = () => onViewMonthChange(subMonths(viewMonth, 1));
 
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -100,7 +106,7 @@ export default function Calendar({ workouts, onSelectDate, selectedDate }: Calen
               disabled={isFutureDate}
               onClick={() => {
                 onSelectDate(day);
-                if (!isCurrentMonth) setViewMonth(startOfMonth(day));
+                if (!isCurrentMonth) onViewMonthChange(startOfMonth(day));
               }}
               className={cn(
                 "relative h-12 flex flex-col items-center justify-center rounded-xl border transition-all overflow-hidden",

@@ -1,0 +1,43 @@
+---
+description: npm supply chain safety — enforce minimum package age and vetting before installing dependencies
+alwaysApply: true
+---
+
+# npm Supply Chain Safety
+
+Before installing ANY npm package (npm install, npx, pnpm add, yarn add, etc.):
+
+1. **Check publish date**: Run `npm view <package> time --json` and verify the **latest version** was published **at least 7 days ago**. If it was published less than 7 days ago, find the most recent version that IS at least 7 days old and install that specific version instead. Tell the user which version you chose and why.
+
+2. **Check weekly downloads**: Run `npm view <package>` and verify it has reasonable adoption (>1000 weekly downloads for libraries, >100 for niche tools). Flag low-download packages to the user.
+
+3. **Prefer exact versions**: Use `--save-exact` when installing to lock to the vetted version.
+
+4. **No install-time scripts**: The global `.npmrc` has `ignore-scripts=true`. Never override this. If a package requires postinstall scripts to function (native modules, etc.), inform the user and let them decide.
+
+5. **Avoid typosquats**: Double-check the package name matches the official one (e.g. `lodash` not `1odash`). If the user asks for a package by description rather than name, verify the correct package name on npmjs.com before installing.
+
+6. **Run `npm audit` after every install**: After installing any package, immediately run `npm audit`. If vulnerabilities are found:
+   - Show the user the full audit output.
+   - If any vulnerability is flagged as **malware** or **critical**, **stop immediately** and alert the user with a clear warning like:
+
+     ```
+     ⚠️ COMPROMISED PACKAGE DETECTED ⚠️
+     Package: <name>@<version>
+     Severity: CRITICAL / MALWARE
+     Advisory: <url>
+
+     Recommended steps:
+     1. Do NOT use this package. Remove it immediately:
+        npm uninstall <name>
+     2. Delete node_modules and package-lock.json, then reinstall:
+        rm -rf node_modules package-lock.json && npm install
+     3. Check if the package ran any code during install (shouldn't if ignore-scripts=true).
+     4. Review the advisory link above for impact details.
+     5. Search your codebase for any imports from this package and remove them.
+     6. If ignore-scripts was NOT enabled during install, assume the machine
+        may be compromised — rotate secrets/tokens that were accessible.
+     ```
+
+   - For **moderate/high** vulnerabilities, show the audit output and suggest `npm audit fix` or pinning a safe version.
+   - Never silently proceed past a critical/malware finding.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
-import { format, isFuture, isSameDay } from "date-fns";
+import { format, isFuture, isSameDay, startOfMonth } from "date-fns";
 import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, TrendingUp } from "lucide-react";
 import { AppState, ExerciseTemplate, UserProfile, WorkoutDay } from "./types";
 import { loadState, saveState } from "./lib/storage";
@@ -56,6 +56,7 @@ export default function App() {
   const [state, setState] = useState<AppState>(loadInitialState);
   const [activeTab, setActiveTab] = useState<Tab>("today");
   const [historyDate, setHistoryDate] = useState<Date | null>(null);
+  const [historyCalendarMonth, setHistoryCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [settingsPage, setSettingsPage] = useState<"main" | "profile" | "exercises">("main");
   const [showExitPrompt, setShowExitPrompt] = useState(false);
   const [isKeyboardActive, setIsKeyboardActive] = useState(false);
@@ -367,6 +368,8 @@ export default function App() {
                   <Calendar
                     workouts={state.workouts}
                     selectedDate={today}
+                    viewMonth={historyCalendarMonth}
+                    onViewMonthChange={setHistoryCalendarMonth}
                     onSelectDate={handleSelectDate}
                   />
                 </>

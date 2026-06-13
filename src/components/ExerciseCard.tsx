@@ -206,9 +206,13 @@ function SetForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!isWeighted || weight) && reps) {
-      onAdd(isWeighted ? parseFloat(weight) : null, parseInt(reps), trackingType);
-    }
+    const parsedReps = parseInt(reps, 10);
+    const parsedWeight = parseFloat(weight);
+
+    if (!reps || !Number.isFinite(parsedReps)) return;
+    if (isWeighted && (!weight || !Number.isFinite(parsedWeight))) return;
+
+    onAdd(isWeighted ? parsedWeight : null, parsedReps, trackingType);
   };
 
   return (
@@ -220,10 +224,13 @@ function SetForm({
             <input
               autoFocus
               type="number"
+              inputMode="decimal"
+              step="any"
+              min="0"
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
               onFocus={(e) => scrollFocusedFieldIntoView(e.currentTarget.closest("[data-keyboard-focus-target]") ?? e.currentTarget)}
-              placeholder="0"
+              placeholder="7.5"
               className="w-full bg-zinc-950 border-b-4 border-lime-500 text-4xl font-black p-2 outline-none text-white italic placeholder:text-zinc-900 focus:border-white transition-colors"
             />
           </div>
