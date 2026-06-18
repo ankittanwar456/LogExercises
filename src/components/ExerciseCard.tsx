@@ -44,9 +44,10 @@ interface ExerciseCardProps {
   onUpdate: (exercise: ExerciseEntry) => void;
   onDelete: () => void;
   isLocked: boolean;
+  onSetAdded?: () => void;
 }
 
-export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked }: ExerciseCardProps) {
+export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked, onSetAdded }: ExerciseCardProps) {
   const [isAddingSet, setIsAddingSet] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,6 +67,7 @@ export default function ExerciseCard({ exercise, onUpdate, onDelete, isLocked }:
       trackingType: nextTrackingType,
       sets: [...exercise.sets, newSet],
     });
+    onSetAdded?.();
     setIsAddingSet(false);
   };
 

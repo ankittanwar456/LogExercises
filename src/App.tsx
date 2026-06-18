@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { format, isFuture, isSameDay, startOfMonth } from "date-fns";
-import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, TrendingUp } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, Timer, TrendingUp } from "lucide-react";
 import { AppState, ExerciseTemplate, UserProfile, WorkoutDay } from "./types";
 import { loadState, saveState } from "./lib/storage";
 import { defaultExerciseTemplates, mergeExerciseTemplates } from "./lib/exerciseTemplates";
@@ -61,10 +61,22 @@ export default function App() {
   const [settingsPage, setSettingsPage] = useState<"main" | "profile" | "exercises">("main");
   const [showExitPrompt, setShowExitPrompt] = useState(false);
   const [isKeyboardActive, setIsKeyboardActive] = useState(false);
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
+  const [timerNow, setTimerNow] = useState(Date.now());
+  const [canShowRestTimer, setCanShowRestTimer] = useState(false);
   const didHydrateRef = useRef(false);
   const lastBackPressRef = useRef(0);
   const exitPromptTimeoutRef = useRef<number | null>(null);
   const [dbReady, setDbReady] = useState(isExerciseDbReady);
+  const today = new Date();
+  const dateStr = format(today, "yyyy-MM-dd");
+  const currentWorkout = state.workouts[dateStr] || null;
+  const historyDateStr = historyDate ? format(historyDate, "yyyy-MM-dd") : null;
+  const historyWorkout = historyDateStr ? state.workouts[historyDateStr] || null : null;
+  const exerciseTemplates = useMemo(
+    () => mergeExerciseTemplates(defaultExerciseTemplates, state.customExercises),
+    [state.customExercises]
+  );
 
   useEffect(() => {
     initExerciseDb()
@@ -162,6 +174,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (activeTab !== "today" || !currentWorkout || currentWorkout.isCompleted || restStartedAt === null) return;
+
+    const intervalId = window.setInterval(() => setTimerNow(Date.now()), 1_000);
+    return () => window.clearInterval(intervalId);
+  }, [activeTab, currentWorkout, restStartedAt]);
+
+  useEffect(() => {
+    setCanShowRestTimer(false);
+
+    if (activeTab !== "today" || !currentWorkout || currentWorkout.isCompleted || restStartedAt === null) return;
+
+    const timeoutId = window.setTimeout(() => setCanShowRestTimer(true), 1_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [activeTab, currentWorkout, restStartedAt]);
+
+  useEffect(() => {
     if (!didHydrateRef.current) {
       didHydrateRef.current = true;
       return;
@@ -186,15 +214,16 @@ export default function App() {
     };
   }, [state]);
 
-  const today = new Date();
-  const dateStr = format(today, "yyyy-MM-dd");
-  const currentWorkout = state.workouts[dateStr] || null;
-  const historyDateStr = historyDate ? format(historyDate, "yyyy-MM-dd") : null;
-  const historyWorkout = historyDateStr ? state.workouts[historyDateStr] || null : null;
-  const exerciseTemplates = useMemo(
-    () => mergeExerciseTemplates(defaultExerciseTemplates, state.customExercises),
-    [state.customExercises]
-  );
+  const showRestTimer = Boolean(canShowRestTimer && activeTab === "today" && currentWorkout && !currentWorkout.isCompleted && restStartedAt !== null);
+  const restTimerText = (() => {
+    if (restStartedAt === null) return "0:00";
+
+    const totalSeconds = Math.max(0, Math.floor((timerNow - restStartedAt) / 1_000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  })();
 
   const updateWorkout = useCallback((workout: WorkoutDay) => {
     if (workout.date !== format(new Date(), "yyyy-MM-dd")) return;
@@ -227,6 +256,8 @@ export default function App() {
         name: exerciseName,
         photo: template.photo,
         trackingType: template.trackingType ?? "weighted",
+        primaryMuscle: template.primaryMuscle,
+        secondaryMuscles: template.secondaryMuscles,
       };
 
       if (existingIndex === -1) {
@@ -243,6 +274,8 @@ export default function App() {
         name: exerciseName,
         photo: template.photo ?? existingTemplate.photo,
         trackingType: template.trackingType ?? existingTemplate.trackingType ?? "weighted",
+        primaryMuscle: template.primaryMuscle ?? existingTemplate.primaryMuscle,
+        secondaryMuscles: template.secondaryMuscles ?? existingTemplate.secondaryMuscles,
       };
 
       return {
@@ -265,6 +298,8 @@ export default function App() {
               name: exerciseName,
               photo: template.photo,
               trackingType: template.trackingType ?? exercise.trackingType ?? "weighted",
+              primaryMuscle: template.primaryMuscle,
+              secondaryMuscles: template.secondaryMuscles,
             }
           : exercise
       ),
@@ -400,6 +435,11 @@ export default function App() {
                 onBack={() => {
                   setActiveTab("history");
                 }}
+                onRestTimerReset={() => {
+                  const now = Date.now();
+                  setRestStartedAt(now);
+                  setTimerNow(now);
+                }}
               />
             </motion.div>
           )}
@@ -436,6 +476,22 @@ export default function App() {
         </AnimatePresence>
         </div>
       </main>
+
+      {showRestTimer && (
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="fixed bottom-28 right-4 z-40 flex items-center gap-2 rounded-full border border-lime-500/40 bg-zinc-950/95 px-4 py-2 shadow-2xl shadow-black/50 backdrop-blur"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-lime-500 text-black">
+            <Timer className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-[8px] font-black uppercase italic tracking-[0.2em] text-zinc-500">Rest Timer</p>
+            <p className="font-mono text-xl font-black leading-none text-white">{restTimerText}</p>
+          </div>
+        </motion.div>
+      )}
 
       {!isKeyboardActive && (
         <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-2xl border-t border-zinc-800 flex items-center justify-around px-4 pb-safe z-30 shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">

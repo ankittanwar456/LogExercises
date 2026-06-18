@@ -55,4 +55,7 @@ export interface ExerciseTemplate {
   name: string;
   photo?: string;
   trackingType?: ExerciseTrackingType;
+  /** Canonical muscle id for the insights body map (e.g. "chest", "biceps"). */
+  primaryMuscle?: string;
+  secondaryMuscles?: string[];
 }

@@ -1,9 +1,11 @@
-import { Camera, ChevronLeft, Dumbbell, Download, Plus, Ruler, Save, Scale, Settings as SettingsIcon, Trash2, Upload, UserRound, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronLeft, Dumbbell, Download, Plus, Ruler, Save, Scale, Settings as SettingsIcon, Trash2, Upload, UserRound, X } from "lucide-react";
 import { motion } from "motion/react";
 import React, { useLayoutEffect, useRef, useState } from "react";
 import JSZip from "jszip";
 import { AppState, BodyWeightEntry, ExerciseTemplate, UserProfile } from "../types";
 import { cn } from "../lib/utils";
+import MusclePicker from "./MusclePicker";
+import { MuscleId, formatMuscleSummary, getExerciseMuscles, splitExerciseMuscles } from "../lib/muscleMap";
 
 const MAX_PHOTO_SIZE = 320;
 const PHOTO_QUALITY = 0.72;
@@ -422,10 +424,16 @@ function CustomExerciseEditor({
 }) {
   const [name, setName] = useState(exercise.name);
   const [photo, setPhoto] = useState(exercise.photo);
+  const [selectedMuscles, setSelectedMuscles] = useState<MuscleId[]>(() => getExerciseMuscles(exercise));
+  const [showMusclePicker, setShowMusclePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const [nameFontSize, setNameFontSize] = useState(EXERCISE_NAME_MAX_FONT_SIZE);
-  const hasChanges = name.trim() !== exercise.name || photo !== exercise.photo;
+  const savedMuscles = getExerciseMuscles(exercise);
+  const musclesChanged =
+    selectedMuscles.length !== savedMuscles.length ||
+    selectedMuscles.some((muscle, index) => muscle !== savedMuscles[index]);
+  const hasChanges = name.trim() !== exercise.name || photo !== exercise.photo || musclesChanged;
 
   useLayoutEffect(() => {
     const input = nameInputRef.current;
@@ -460,7 +468,14 @@ function CustomExerciseEditor({
   const handleSave = () => {
     const nextName = name.trim();
     if (!nextName) return;
-    onSave({ ...exercise, name: nextName, photo });
+    const { primaryMuscle, secondaryMuscles } = splitExerciseMuscles(selectedMuscles);
+    onSave({
+      ...exercise,
+      name: nextName,
+      photo,
+      primaryMuscle,
+      secondaryMuscles,
+    });
   };
 
   return (
@@ -496,6 +511,27 @@ function CustomExerciseEditor({
           </p>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setShowMusclePicker((open) => !open)}
+        className="w-full flex items-center justify-between gap-3 rounded-2xl bg-zinc-950 border border-zinc-800 px-4 py-3 text-left active:scale-[0.99] transition-transform"
+      >
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] font-black text-zinc-600 uppercase italic tracking-widest">Target Muscles</p>
+          <p className={cn(
+            "text-[9px] font-black uppercase tracking-widest truncate",
+            selectedMuscles.length > 0 ? "text-lime-400" : "text-zinc-600"
+          )}>
+            {formatMuscleSummary(selectedMuscles)}
+          </p>
+        </div>
+        <ChevronDown className={cn("w-4 h-4 shrink-0 text-zinc-600 transition-transform", showMusclePicker && "rotate-180")} />
+      </button>
+
+      {showMusclePicker && (
+        <MusclePicker value={selectedMuscles} onChange={setSelectedMuscles} hideHeader />
+      )}
 
       <div className="flex gap-3">
         {photo && (

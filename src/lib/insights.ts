@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format, getDay, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, getDay, parseISO, subDays } from "date-fns";
 import { AppState } from "../types";
 import { getExerciseByName } from "./exerciseDb";
 
@@ -94,6 +94,18 @@ export function getHeadlineStats(state: AppState): HeadlineStats {
   };
 }
 
+// ─── Time range ──────────────────────────────────────────────────────────────
+
+export type TimeRange = "today" | "week" | "month" | "all";
+
+export function getRangeCutoff(range: TimeRange): string | null {
+  const today = format(new Date(), "yyyy-MM-dd");
+  if (range === "today") return today;
+  if (range === "week") return format(subDays(new Date(), 6), "yyyy-MM-dd");
+  if (range === "month") return format(subDays(new Date(), 29), "yyyy-MM-dd");
+  return null; // all time
+}
+
 // ─── Exercise list ────────────────────────────────────────────────────────────
 
 export function getLoggedExerciseNames(state: AppState): string[] {
@@ -128,11 +140,12 @@ function epley1RM(weight: number, reps: number): number {
   return weight * (1 + reps / 30);
 }
 
-export function getExerciseProgression(state: AppState, name: string): ExerciseSessionPoint[] {
+export function getExerciseProgression(state: AppState, name: string, cutoff: string | null = null): ExerciseSessionPoint[] {
   const sorted = Object.keys(state.workouts).sort();
   const points: ExerciseSessionPoint[] = [];
 
   for (const date of sorted) {
+    if (cutoff !== null && date < cutoff) continue;
     const workout = state.workouts[date];
     const exercise = workout.exercises.find((e) => e.name.toLowerCase() === name.toLowerCase());
     if (!exercise || exercise.sets.length === 0) continue;
@@ -165,8 +178,8 @@ export function getExerciseProgression(state: AppState, name: string): ExerciseS
   return points;
 }
 
-export function getPersonalRecords(state: AppState, name: string): PersonalRecords {
-  const progression = getExerciseProgression(state, name);
+export function getPersonalRecords(state: AppState, name: string, cutoff: string | null = null): PersonalRecords {
+  const progression = getExerciseProgression(state, name, cutoff);
   if (progression.length === 0) return { maxWeightKg: null, maxReps: 0, bestEst1RM: 0, maxVolumeKg: 0 };
 
   return {
@@ -192,10 +205,11 @@ const muscleGroupLabelMap: Record<string, string> = {
   neck: "Neck",
 };
 
-export function getMuscleGroupVolume(state: AppState): { group: string; volumeKg: number }[] {
+export function getMuscleGroupVolume(state: AppState, cutoff: string | null = null): { group: string; volumeKg: number }[] {
   const totals: Record<string, number> = {};
 
-  for (const workout of Object.values(state.workouts)) {
+  for (const [date, workout] of Object.entries(state.workouts)) {
+    if (cutoff !== null && date < cutoff) continue;
     for (const exercise of workout.exercises) {
       const dbEntry = getExerciseByName(exercise.name);
       const rawGroup = dbEntry?.muscle_group ?? null;
@@ -226,9 +240,10 @@ export interface WeekdayCount {
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function getConsistencyByWeekday(state: AppState): WeekdayCount[] {
+export function getConsistencyByWeekday(state: AppState, cutoff: string | null = null): WeekdayCount[] {
   const counts = [0, 0, 0, 0, 0, 0, 0];
   for (const date of Object.keys(state.workouts)) {
+    if (cutoff !== null && date < cutoff) continue;
     const workout = state.workouts[date];
     if (!workout.isCompleted) continue;
     const dayIndex = getDay(parseISO(date));
@@ -238,9 +253,10 @@ export function getConsistencyByWeekday(state: AppState): WeekdayCount[] {
   return [1, 2, 3, 4, 5, 6, 0].map((i) => ({ weekday: WEEKDAY_LABELS[i], count: counts[i] }));
 }
 
-export function getWorkoutHeatmapData(state: AppState): Record<string, number> {
+export function getWorkoutHeatmapData(state: AppState, cutoff: string | null = null): Record<string, number> {
   const result: Record<string, number> = {};
   for (const [date, workout] of Object.entries(state.workouts)) {
+    if (cutoff !== null && date < cutoff) continue;
     if (workout.isCompleted) {
       result[date] = workout.exercises.length;
     }
@@ -255,8 +271,9 @@ export interface BodyWeightPoint {
   weightKg: number;
 }
 
-export function getBodyWeightSeries(state: AppState): BodyWeightPoint[] {
+export function getBodyWeightSeries(state: AppState, cutoff: string | null = null): BodyWeightPoint[] {
   return [...state.profile.bodyWeightHistory]
+    .filter((entry) => cutoff === null || entry.recordedAt.slice(0, 10) >= cutoff)
     .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
     .map((entry) => ({
       date: entry.recordedAt.slice(0, 10),

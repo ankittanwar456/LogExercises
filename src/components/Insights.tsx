@@ -12,10 +12,14 @@ import {
   getWorkoutHeatmapData,
   getBodyWeightSeries,
   getBmi,
+  getRangeCutoff,
+  type TimeRange,
 } from "../lib/insights";
 import LineChart from "./charts/LineChart";
 import BarChart from "./charts/BarChart";
 import Heatmap from "./charts/Heatmap";
+import MuscleMap from "./MuscleMap";
+import { getMuscleActivation } from "../lib/muscleMap";
 import { cn } from "../lib/utils";
 
 interface InsightsProps {
@@ -82,29 +86,72 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// ─── Time range toggle ────────────────────────────────────────────────────────
+
+const TIME_RANGES: { id: TimeRange; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "week", label: "Week" },
+  { id: "month", label: "Month" },
+  { id: "all", label: "All" },
+];
+
+function RangeToggle({
+  value,
+  onChange,
+}: {
+  value: TimeRange;
+  onChange: (r: TimeRange) => void;
+}) {
+  return (
+    <div className="flex gap-1 bg-zinc-950 rounded-xl p-1">
+      {TIME_RANGES.map((r) => (
+        <button
+          key={r.id}
+          onClick={() => onChange(r.id)}
+          className={cn(
+            "flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest italic transition-colors",
+            value === r.id
+              ? "bg-zinc-700 text-white"
+              : "text-zinc-600 hover:text-zinc-400"
+          )}
+        >
+          {r.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type ProgressionMode = "1rm" | "volume";
 
 export default function Insights({ state, dbReady }: InsightsProps) {
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const cutoff = useMemo(() => getRangeCutoff(timeRange), [timeRange]);
+
   const stats = useMemo(() => getHeadlineStats(state), [state]);
   const exerciseNames = useMemo(() => getLoggedExerciseNames(state), [state]);
   const [selectedExercise, setSelectedExercise] = useState<string>(() => exerciseNames[0] ?? "");
   const [progressionMode, setProgressionMode] = useState<ProgressionMode>("1rm");
 
   const progression = useMemo(
-    () => (selectedExercise ? getExerciseProgression(state, selectedExercise) : []),
-    [state, selectedExercise]
+    () => (selectedExercise ? getExerciseProgression(state, selectedExercise, cutoff) : []),
+    [state, selectedExercise, cutoff]
   );
   const prs = useMemo(
-    () => (selectedExercise ? getPersonalRecords(state, selectedExercise) : null),
-    [state, selectedExercise]
+    () => (selectedExercise ? getPersonalRecords(state, selectedExercise, cutoff) : null),
+    [state, selectedExercise, cutoff]
   );
 
-  const muscleVolume = useMemo(() => (dbReady ? getMuscleGroupVolume(state) : []), [state, dbReady]);
-  const weekdayConsistency = useMemo(() => getConsistencyByWeekday(state), [state]);
-  const heatmapData = useMemo(() => getWorkoutHeatmapData(state), [state]);
-  const bodyWeightSeries = useMemo(() => getBodyWeightSeries(state), [state]);
+  const muscleVolume = useMemo(() => (dbReady ? getMuscleGroupVolume(state, cutoff) : []), [state, dbReady, cutoff]);
+  const muscleActivation = useMemo(
+    () => getMuscleActivation(state, cutoff),
+    [state, cutoff]
+  );
+  const weekdayConsistency = useMemo(() => getConsistencyByWeekday(state, cutoff), [state, cutoff]);
+  const heatmapData = useMemo(() => getWorkoutHeatmapData(state, cutoff), [state, cutoff]);
+  const bodyWeightSeries = useMemo(() => getBodyWeightSeries(state, cutoff), [state, cutoff]);
   const bmi = useMemo(() => getBmi(state), [state]);
 
   const hasWorkouts = stats.totalWorkouts > 0;
@@ -134,9 +181,12 @@ export default function Insights({ state, dbReady }: InsightsProps) {
   return (
     <div className="p-6 pt-12 space-y-12">
       {/* Header */}
-      <div className="px-2">
-        <h1 className="text-7xl font-black tracking-tighter leading-none mb-2 text-white italic">INSIGHTS</h1>
-        <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-[10px] italic">Your Performance Data</p>
+      <div className="px-2 space-y-4">
+        <div>
+          <h1 className="text-7xl font-black tracking-tighter leading-none mb-2 text-white italic">INSIGHTS</h1>
+          <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-[10px] italic">Your Performance Data</p>
+        </div>
+        <RangeToggle value={timeRange} onChange={setTimeRange} />
       </div>
 
       {/* ── Headline stats ── */}
@@ -199,6 +249,15 @@ export default function Insights({ state, dbReady }: InsightsProps) {
           </div>
         ) : (
           <EmptyCard message="No workouts logged yet." />
+        )}
+      </Section>
+
+      {/* ── Muscles worked (body map) ── */}
+      <Section title="Muscles Worked">
+        {muscleActivation.maxScore > 0 ? (
+          <MuscleMap activation={muscleActivation} />
+        ) : (
+          <EmptyCard message="Log a workout to see which muscles you've trained." />
         )}
       </Section>
 

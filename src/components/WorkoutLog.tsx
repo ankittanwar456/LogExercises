@@ -17,9 +17,10 @@ interface WorkoutLogProps {
   onUpdate: (workout: WorkoutDay) => void;
   onSaveExerciseTemplate: (template: ExerciseTemplate) => void;
   onBack: () => void;
+  onRestTimerReset?: () => void;
 }
 
-export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, dbReady, onUpdate, onSaveExerciseTemplate, onBack }: WorkoutLogProps) {
+export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, dbReady, onUpdate, onSaveExerciseTemplate, onBack, onRestTimerReset }: WorkoutLogProps) {
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState("");
   const [newExerciseTrackingType, setNewExerciseTrackingType] = useState<ExerciseTrackingType>("weighted");
@@ -175,6 +176,11 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
     });
   };
 
+  const resetRestTimer = () => {
+    onRestTimerReset?.();
+    setNow(Date.now());
+  };
+
   const deleteExercise = (id: string) => {
     if (!workout) return;
     onUpdate({
@@ -280,6 +286,7 @@ export default function WorkoutLog({ date, workout, canEdit, exerciseTemplates, 
               isLocked={!canEdit || workout.isCompleted}
               onUpdate={updateExercise}
               onDelete={() => deleteExercise(exercise.id)}
+              onSetAdded={resetRestTimer}
             />
           ))}
         </AnimatePresence>

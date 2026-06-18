@@ -108,6 +108,8 @@ export const mergeExerciseTemplates = (...templateGroups: ExerciseTemplate[][]) 
       ...template,
       photo: isLegacyGeneratedPhoto ? existing?.photo : template.photo ?? existing?.photo,
       trackingType: template.trackingType ?? existing?.trackingType ?? "weighted",
+      primaryMuscle: template.primaryMuscle ?? existing?.primaryMuscle,
+      secondaryMuscles: template.secondaryMuscles ?? existing?.secondaryMuscles,
     });
   });
 
