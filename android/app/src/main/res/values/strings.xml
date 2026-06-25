@@ -4,4 +4,8 @@
     <string name="title_activity_main">LogExercises</string>
     <string name="package_name">com.logexercises.app</string>
     <string name="custom_url_scheme">com.logexercises.app</string>
+    <string name="rest_timer_channel_name">Rest Timer</string>
+    <string name="rest_timer_channel_description">Shows rest time on the lock screen while you work out</string>
+    <string name="rest_timer_notification_title">Rest</string>
+    <string name="rest_timer_notification_text">Between sets</string>
 </resources>

@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { AppState } from "../types";
 import { getExerciseByName } from "./exerciseDb";
 
@@ -150,6 +151,7 @@ export function getMuscleActivation(
   state: AppState,
   cutoff: string | null = null
 ): MuscleActivationResult {
+  const today = format(new Date(), "yyyy-MM-dd");
   const byMuscle: Partial<Record<MuscleId, MuscleActivation>> = {};
   const customByName = new Map(
     state.customExercises.map((template) => [template.name.trim().toLowerCase(), template])
@@ -164,8 +166,12 @@ export function getMuscleActivation(
 
   for (const [date, workout] of Object.entries(state.workouts)) {
     if (cutoff !== null && date < cutoff) continue;
+
+    const isInProgressToday = date === today && !workout.isCompleted;
+
     for (const exercise of workout.exercises) {
-      const setCount = exercise.sets.length;
+      const loggedSetCount = exercise.sets.length;
+      const setCount = loggedSetCount > 0 ? loggedSetCount : isInProgressToday ? 1 : 0;
       if (setCount === 0) continue;
 
       const db = getExerciseByName(exercise.name);

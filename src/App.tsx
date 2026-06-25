@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import { format, isFuture, isSameDay, startOfMonth } from "date-fns";
 import { Calendar as CalendarIcon, ClipboardList, Settings as SettingsIcon, Timer, TrendingUp } from "lucide-react";
 import { AppState, ExerciseTemplate, UserProfile, WorkoutDay } from "./types";
@@ -11,6 +12,7 @@ import WorkoutLog from "./components/WorkoutLog";
 import Settings from "./components/Settings";
 import Insights from "./components/Insights";
 import { cn } from "./lib/utils";
+import { startRestTimerLockScreen, stopRestTimerLockScreen } from "./lib/restTimer";
 import { motion, AnimatePresence } from "motion/react";
 
 type Tab = "history" | "today" | "stats" | "settings";
@@ -179,6 +181,34 @@ export default function App() {
     const intervalId = window.setInterval(() => setTimerNow(Date.now()), 1_000);
     return () => window.clearInterval(intervalId);
   }, [activeTab, currentWorkout, restStartedAt]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const restActive = Boolean(currentWorkout && !currentWorkout.isCompleted && restStartedAt !== null);
+
+    if (!restActive) {
+      stopRestTimerLockScreen().catch((err) => console.error("Failed to stop lock screen rest timer", err));
+      return;
+    }
+
+    startRestTimerLockScreen(restStartedAt!).catch((err) =>
+      console.error("Failed to start lock screen rest timer", err)
+    );
+  }, [currentWorkout, restStartedAt]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const syncTimer = () => setTimerNow(Date.now());
+    const listenerPromise = CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) syncTimer();
+    });
+
+    return () => {
+      listenerPromise.then((listener) => listener.remove());
+    };
+  }, []);
 
   useEffect(() => {
     setCanShowRestTimer(false);
@@ -439,6 +469,11 @@ export default function App() {
                   const now = Date.now();
                   setRestStartedAt(now);
                   setTimerNow(now);
+                  if (Capacitor.isNativePlatform() && currentWorkout && !currentWorkout.isCompleted) {
+                    startRestTimerLockScreen(now).catch((err) =>
+                      console.error("Failed to start lock screen rest timer", err)
+                    );
+                  }
                 }}
               />
             </motion.div>

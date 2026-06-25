@@ -1,6 +1,7 @@
 import { differenceInCalendarDays, format, getDay, parseISO, subDays } from "date-fns";
 import { AppState } from "../types";
 import { getExerciseByName } from "./exerciseDb";
+import { getExerciseMuscles, MuscleId } from "./muscleMap";
 
 // ─── Headline stats ──────────────────────────────────────────────────────────
 
@@ -205,15 +206,63 @@ const muscleGroupLabelMap: Record<string, string> = {
   neck: "Neck",
 };
 
-export function getMuscleGroupVolume(state: AppState, cutoff: string | null = null): { group: string; volumeKg: number }[] {
+const muscleIdToVolumeGroup: Record<MuscleId, string> = {
+  neck: "Neck",
+  traps: "Back",
+  shoulders: "Shoulders",
+  chest: "Chest",
+  biceps: "Arms",
+  triceps: "Arms",
+  forearms: "Arms",
+  abs: "Core",
+  obliques: "Core",
+  lats: "Back",
+  upperBack: "Back",
+  lowerBack: "Back",
+  glutes: "Legs",
+  quads: "Legs",
+  adductors: "Legs",
+  hamstrings: "Legs",
+  calves: "Legs",
+};
+
+function resolveExerciseVolumeGroup(
+  exerciseName: string,
+  customByName: Map<string, AppState["customExercises"][number]>
+): string {
+  const dbEntry = getExerciseByName(exerciseName);
+  if (dbEntry?.muscle_group) {
+    return muscleGroupLabelMap[dbEntry.muscle_group] ?? dbEntry.muscle_group;
+  }
+
+  const custom = customByName.get(exerciseName.trim().toLowerCase());
+  const primaryMuscle = custom ? getExerciseMuscles(custom)[0] : undefined;
+  if (primaryMuscle) {
+    return muscleIdToVolumeGroup[primaryMuscle] ?? "Other";
+  }
+
+  return "Other";
+}
+
+export function getMuscleGroupVolume(
+  state: AppState,
+  cutoff: string | null = null
+): { group: string; volumeKg: number }[] {
+  const today = format(new Date(), "yyyy-MM-dd");
   const totals: Record<string, number> = {};
+  const customByName = new Map(
+    state.customExercises.map((template) => [template.name.trim().toLowerCase(), template])
+  );
 
   for (const [date, workout] of Object.entries(state.workouts)) {
     if (cutoff !== null && date < cutoff) continue;
+
+    const isInProgressToday = date === today && !workout.isCompleted;
+
     for (const exercise of workout.exercises) {
-      const dbEntry = getExerciseByName(exercise.name);
-      const rawGroup = dbEntry?.muscle_group ?? null;
-      const group = rawGroup ? (muscleGroupLabelMap[rawGroup] ?? rawGroup) : "Other";
+      if (exercise.sets.length === 0 && !isInProgressToday) continue;
+
+      const group = resolveExerciseVolumeGroup(exercise.name, customByName);
 
       let vol = 0;
       for (const set of exercise.sets) {
